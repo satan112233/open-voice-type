@@ -1,7 +1,7 @@
 {
   "name": "open-voice-type",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An open-source, local-first AI voice dictation app for Windows and macOS.",
   "author": "OpenVoiceType Contributors",
   "license": "MIT",

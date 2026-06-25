@@ -27,6 +27,23 @@ npm run dist       # 打包 Windows 安装包
 
 **重要**：renderer（`src/renderer/**`）改动走 Vite HMR 即时生效；**main / preload / shared 类型**改动需**重启 dev server**才生效（electron-vite 不一定自动重启 Electron）。
 
+## 打包与发布
+
+**打包**：`npm run dist`，产物在 `release/`：安装包 `语音输入助手 Setup <版本>.exe`（约 123MB）、`latest.yml`、`.blockmap`。`release/`、`dist`、`dist-electron`、`node_modules` 均已 gitignore。版本号取自 `package.json` 的 `version`。
+
+**国内打包下载超时**：electron-builder 首次打包要从 GitHub 拉 Electron 本体与 winCodeSign/NSIS，国内常超时。仓库根已有 `.npmrc` 把这些二进制指向 npmmirror 镜像（`registry` + `electron_mirror` + `electron_builder_binaries_mirror`）根治，**勿删**。
+
+**发布到 GitHub Release**（本机无 `gh` CLI，用 REST API）：
+1. 取 token（git 凭据里的 `ghp_` PAT，有 push 权限）：
+   ```bash
+   TOKEN=$(printf "host=github.com\nprotocol=https\n\n" | git credential fill | sed -n 's/^password=//p')
+   ```
+2. 建 release：`POST /repos/<owner>/<repo>/releases`，body 含 `tag_name`(如 `v0.1.0`)、`target_commitish:"main"`（GitHub 自动建 tag）、`name`、`body`、`draft:false`。
+3. 传资产：`POST https://uploads.github.com/repos/<owner>/<repo>/releases/<id>/assets?name=<ASCII名>`，`-H "Content-Type: application/octet-stream" --data-binary @"<exe路径>"`。**资产名用 ASCII**（如 `OpenVoiceType-Setup-0.1.0.exe`）避免中文/空格问题；本地源文件名仍是中文无妨。
+4. 发版仅改版本号与 release body 即可复用。
+
+> 提示：若本机用 FastGithub/DevSidecar 等本地反代加速 GitHub（域名被劫持到 `127.0.0.1` 并用自签 CA），命令行 `curl` 需加 **`--ssl-no-revoke`**，否则报 `CRYPT_E_NO_REVOCATION_CHECK`。未用反代则不需要。
+
 ## 架构
 
 **多窗口设计**（`src/main/index.ts`）：

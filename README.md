@@ -1,182 +1,226 @@
 <div align="center">
 
-# 🎙️ 语音输入助手 · OpenVoiceType
+<img src="src/renderer/assets/logo.png" alt="语音输入助手" width="120" height="120" />
+
+# 语音输入助手 · OpenVoiceType
 
 **自然说话，自动成文 —— 开源、本地优先、免费的 AI 语音输入工具**
 
-把你说的每一句口语，实时整理成通顺、带标点的书面文字，并自动粘贴到任何应用里。
+按住热键说话 · 本地识别 · 大模型成文 · 自动粘贴到任意应用
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-0078D6.svg)](#-安装与快速开始)
-[![Electron](https://img.shields.io/badge/Electron-2C2E3B.svg?logo=electron&logoColor=white)](https://www.electronjs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6?logo=windows&logoColor=white)](#-快速开始)
+[![Electron](https://img.shields.io/badge/Electron-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Stars](https://img.shields.io/github/stars/satan112233/open-voice-type?style=social)](https://github.com/satan112233/open-voice-type)
 
 </div>
 
 ---
 
-## 这是什么？
+## 🌟 为什么选择语音输入助手？
 
-OpenVoiceType 是一款桌面级的 **AI 语音输入法**。在任何输入框里按下全局热键 `Ctrl+Alt+V`，开口说话，松手后它会：
+市面上的语音输入，常常让你二选一：要么**够准但要把语音传到云端**（隐私存疑），要么**本地但只会逐字转写**（满屏「嗯、啊、那个」还得自己改）。
 
-1. **识别**你说的话（默认在你电脑本地完成，语音不上传）；
-2. 用**大模型把口语整理成书面文**——去掉「嗯、啊、那个」，听懂你的「改口/口误」只保留最终意思，把口述的「逗号、句号、换行」变成真正的标点，甚至自动整理成条理清晰的列表；
-3. 把结果**自动粘贴到光标所在的位置**。
+**语音输入助手两者兼得。** 它常驻系统托盘，在浏览器、文档、IDE、聊天软件……**任意输入框**按下一个快捷键，开口说话，松手即得整理好的文字——语音默认在你本地识别（**不出本机**），再由你自己的大模型把口语**润色成可以直接发出去的书面文**，自动粘贴到光标处。
 
-> 用说话的速度写作，但得到的是精心打磨过的文字。
+> 用说话的速度写作，得到的却是精心打磨过的文字。
 
-<!-- 📹 建议在此处补充一段演示 GIF：按住热键说一段带口误的话 → 悬浮录音条 → 自动输出整理后的文字。
-<p align="center"><img src="docs/demo.gif" alt="OpenVoiceType 演示" width="640"></p>
+---
+
+## ✨ 亮点速览
+
+| | 功能 | 一句话 |
+|---|---|---|
+| 🎙️ | **全局热键语音输入** | 任意软件里按 `Ctrl+Alt+V`，说完自动粘贴到光标处 |
+| 🔒 | **本地优先，隐私可控** | 默认本地 Sherpa-onnx 离线识别，语音不上传 |
+| 🧠 | **大模型口语优化** | AI 自动去填充词、识别改口、口述标点转真符号、整理结构 |
+| 🌏 | **多语种识别** | SenseVoice 支持中 / 英 / 日 / 韩 / 粤语 |
+| ☁️ | **云端识别可选** | 一键切换科大讯飞，按需取舍速度与准确率 |
+| 📚 | **个人词典** | 锁定人名、品牌、术语，识别纠错更懂你 |
+| 🕒 | **历史记录** | 本地保存、可搜索，并**标注每条用的识别引擎与优化模型** |
+| 🛡️ | **稳健不卡死** | 识别 / 优化失败或超时都会自动恢复，绝不卡在「处理中」 |
+| 🎨 | **精致交互** | 仿 Typeless 的悬浮录音条，实时声波 + Thinking 动效 |
+
+---
+
+## 🖼️ 界面预览
+
+<!-- 📸 建议补充截图，效果更佳：主界面、录音悬浮条、设置页等。
+<div align="center">
+  <img src="docs/screenshots/home.png" alt="主界面" width="80%" />
+  <br /><br />
+  <img src="docs/screenshots/popup.png" alt="录音悬浮条" width="40%" />
+</div>
 -->
 
----
-
-## 为什么选择它？
-
-市面上的语音输入，常常让你二选一：要么**够准但要把语音传到云端**（隐私存疑），要么**本地但只能逐字转写**（满屏口水话还得自己改）。
-
-OpenVoiceType 想两者兼得：
-
-- 🔒 **真·本地优先** —— 默认用本地模型识别，语音数据不出你的电脑。
-- 🧠 **不只是转写，而是「成文」** —— 大模型帮你把口语润色成可以直接发出去的文字。
-- 🆓 **完全开源免费** —— MIT 协议，没有订阅、没有次数限制，模型 Key 用你自己的。
+> 📹 一段演示胜过千言：按住 `Ctrl+Alt+V` 说一段带口误的话，屏幕底部弹出悬浮录音条，松手后文字自动出现在你的输入框里。
 
 ---
 
-## ✨ 核心特性
+## 📦 核心功能详解
 
-| 特性 | 说明 |
-|------|------|
-| 🎙️ **全局热键，随处可用** | 在浏览器、IM、编辑器、邮件……任意输入框按 `Ctrl+Alt+V` 即可，结果自动粘贴到光标处 |
-| 🔒 **本地识别，隐私可控** | 默认使用 [Sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) + SenseVoice 离线模型，语音不上传 |
-| 🧠 **大模型口语优化** | 接入 DeepSeek / 智谱 AI，自动去填充词、纠正改口与口误、把口述标点转为真符号、整理列表结构 |
-| 🌏 **多语种识别** | SenseVoice 支持中、英、日、韩、粤语 |
-| ☁️ **云端识别可选** | 可一键切换到科大讯飞云识别，按需取舍速度与准确率 |
-| 📚 **个人词典** | 添加人名、品牌、专业术语，优化时自动纠正同音错字，识别更懂你 |
-| 🕒 **历史记录** | 本地保存识别历史，可搜索、复制、删除，并**标注每条用的识别引擎与优化模型** |
-| 🎨 **精致交互** | 仿 Typeless 的悬浮录音条，实时声波 + "Thinking" 处理动效 |
-| 🛡️ **稳健可靠** | 识别/优化失败或超时都会自动恢复，不会卡在「处理中」 |
+### 🎙️ 全局热键，随处可用
+
+在**任意应用**（浏览器、IM、编辑器、邮件……）按 `Ctrl+Alt+V` 即可开始 / 停止录音。录音时屏幕底部弹出**圆角药丸录音浮层**，带由真实麦克风音量驱动的声波动画，左取消 / 右完成。识别完成后，结果按你设定的**输出模式**处理：直接粘贴到光标处 / 仅复制到剪贴板 / 弹窗确认后再粘贴。
+
+### 🗣️ 多引擎识别（本地优先）
+
+| 引擎 | 说明 | 需要配置 |
+| --- | --- | --- |
+| **本地 Sherpa-onnx**（默认） | [SenseVoice](https://github.com/k2-fsa/sherpa-onnx) 模型，中/英/日/韩/粤语，**完全离线**、隐私不出本机 | 见下方部署说明 |
+| **科大讯飞** | 中文场景云端识别 | AppID / APIKey / APISecret |
+
+### 🧠 口语内容智能优化（DeepSeek / 智谱）
+
+开启后，AI 会把口语化的识别结果润色为自然、清晰、流畅的文本，同时保留你的原意：
+
+- **智能改口识别**：说「三点……不对，是十点」时，只保留最终正确的表述，绝不前后都留。
+- **去除填充词**：自动清理「嗯、啊、那个、然后、就是」等口头禅与停顿词。
+- **标点口令 & 自动格式化**：说「逗号 / 句号 / 换行 / 新段落」转成真标点，口述的并列要点自动整理成列表。
+- **术语纠错**：参考你的个人词典，纠正读音相近但拼写有误的专有名词。
+
+> 接入你自己的大模型 API（**DeepSeek** / **智谱 AI**，均为 OpenAI 兼容接口）。未配置时不启用优化，识别结果原样输出；优化失败或超时会**自动回退到识别原文**，不中断流程。
+
+### 📚 个人词典
+
+在「词典」页录入常说的人名、缩写、品牌、项目代号。开启口语优化后，这些词会作为参考注入大模型 Prompt，帮助纠正同音错字，让结果始终如你所愿。
+
+### 🕒 历史记录
+
+自动保存识别历史（最多 200 条，保留时长可设为永久 / 7 / 30 / 90 天），支持**搜索、复制、删除**。每条记录还会**标注当时用的识别引擎与口语优化模型**，方便你回溯与对比不同模型的效果。
+
+### 🎨 顺手的外观与交互
+
+- **浅色 / 深色 / 跟随系统** 三种主题。
+- 无边框窗口 + 自定义标题栏；关闭即最小化到**系统托盘**常驻。
+- 仿 Typeless 的录音浮层与设置面板（自定义开关、下拉），交互精致统一。
 
 ---
 
-## 🧠 工作原理
+## ⌨️ 快捷键
 
-```
-   按住 Ctrl+Alt+V 说话
-            │
-            ▼
-   ┌──────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
-   │  语音识别 (ASR)   │ ──▶ │   口语优化 (LLM)      │ ──▶ │   自动粘贴       │
-   │  本地 Sherpa /    │     │   DeepSeek / 智谱     │     │   到当前输入框   │
-   │  科大讯飞         │     │  （可选，失败回退原文）│     │                 │
-   └──────────────────┘     └──────────────────────┘     └─────────────────┘
-```
+| 快捷键 | 说明 | 可自定义 |
+| --- | --- | :---: |
+| `Ctrl + Alt + V` | 开始 / 停止语音输入（应用内 / 外均可） | ✅ |
 
-- **语音识别**默认在本地完成；口语优化是**可选**的——不配置大模型 Key 时，直接输出识别原文。
-- 大模型优化失败或超时会**自动回退到识别原文**，绝不让流程中断或卡死。
+> 自定义方式：设置 → 语音输入 → 全局热键，点击输入框后按下新组合键即可。
 
 ---
 
-## 📦 安装与快速开始
+## 🚀 快速开始
 
-> 目前主要面向 **Windows**。
+> 目前主要面向 **Windows 10 / 11**。
 
-### 从源码运行
+### 📥 直接下载使用
+
+> 预编译安装包即将在 [Releases](https://github.com/satan112233/open-voice-type/releases) 提供。在此之前，请按下方「从源码运行」启动，或用 `npm run dist` 自行打包。
+
+### 🧑‍💻 从源码运行（开发者）
+
+#### 环境要求
+
+- Windows 10 / 11
+- Node.js 20+
+- （可选）DeepSeek / 智谱 的 API Key —— 用于口语优化，推荐 [DeepSeek](https://platform.deepseek.com/)，便宜好用
+
+#### 安装与运行
 
 ```bash
-# 1. 克隆仓库
+# 克隆项目
 git clone https://github.com/satan112233/open-voice-type.git
 cd open-voice-type
 
-# 2. 安装依赖
+# 安装依赖
 npm install
 
-# 3. 启动开发模式
+# 开发模式运行
 npm run dev
 ```
 
-### 打包成安装程序
+### ⚙️ 配置
+
+应用内「设置」清晰地分为两类：
+
+1. **语音识别引擎** —— 选「本地 Sherpa-onnx」（默认，无需联网）或「科大讯飞」（填入 AppID / APIKey / APISecret，需在讯飞开放平台开通「中英识别大模型」服务）。
+2. **口语优化（可选）** —— 打开开关，选择 DeepSeek 或智谱 AI，填入对应 API Key。不填则不启用优化。
+
+### 🔉 本地 Sherpa-onnx 部署（使用本地识别时）
+
+<details>
+<summary>展开部署步骤</summary>
+
+1. 从 [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases) 下载 Windows x64 预编译包。
+2. 将 `sherpa-onnx-offline.exe` 及其依赖 DLL（`onnxruntime.dll`、`sherpa-onnx-c-api.dll`、`sherpa-onnx-cxx-api.dll` 等）放到项目 `resources/sherpa-onnx/`。
+3. 首次使用本地识别时，应用会自动从 GitHub 下载 SenseVoice 模型到用户数据目录（约 160MB）；打包时 `resources/sherpa-onnx/` 会随安装包一起分发。
+
+</details>
+
+> 不想折腾本地引擎？在设置里切换到「科大讯飞」并填入 Key，即可立即使用云端识别。
+
+### 📦 打包为安装程序
 
 ```bash
-npm run build   # 类型检查 + 构建
-npm run dist    # 生成 Windows 安装包（输出到 release/）
+npm run dist   # 生成 Windows 安装程序（.exe），产物在 release/ 目录
 ```
 
-> 如果你在网络受限的环境（如国内），可使用镜像加速 Electron 相关二进制下载：
+> 💡 若打包卡在下载 Electron / NSIS 工具（GitHub 连接不稳），改用国内镜像：
 > ```bash
 > set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 > set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
 > npm run dist
 > ```
 
-### 本地识别引擎准备
+---
 
-本地识别依赖 Sherpa-onnx：
+## 🛠️ 常用命令
 
-- 首次使用本地引擎时，应用会自动下载 SenseVoice 模型。
-- 你还需要把 `sherpa-onnx-offline.exe` 及其依赖的 DLL 放到 `resources/sherpa-onnx/`，可从 [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases) 下载 Windows 版本。
-
-> 不想折腾本地引擎？在设置里切换到「科大讯飞」并填入 Key，即可立即使用云端识别。
+```bash
+npm run dev        # 开发模式
+npm run typecheck  # 类型检查
+npm run build      # 构建生产包
+npm run dist       # 打包 Windows 安装程序
+```
 
 ---
 
-## ⚙️ 配置
+## 🏗️ 技术栈
 
-应用内「设置」分为两类，清晰直观：
-
-### 1. 语音识别引擎
-
-| 选项 | 需要的配置 |
-|------|-----------|
-| **本地 Sherpa-onnx**（默认） | 无需联网、无需 Key |
-| **科大讯飞** | AppID / APIKey / APISecret（需在讯飞开放平台开通「中英识别大模型」服务） |
-
-### 2. 口语优化（可选，大模型）
-
-打开开关并选择供应商，填入对应 API Key 即可：
-
-| 供应商 | 说明 |
-|--------|------|
-| **DeepSeek** | OpenAI 兼容接口 |
-| **智谱 AI** | OpenAI 兼容接口 |
-
-> 未填写 Key 时不会启用优化，识别结果原样输出。
-
-### 个人词典
-
-在「词典」页添加常用的专有名词、人名、术语。开启口语优化后，这些词会作为参考注入大模型，帮助纠正读音相近但拼写错误的识别结果。
+**Electron** · **electron-vite** · **React 19** · **TypeScript** · **Tailwind CSS** · **Zustand** · **electron-store** · **koffi**（Windows 原生 API，模拟粘贴）· **Sherpa-onnx**（离线语音识别）· **ws**（科大讯飞 WebSocket）· **DeepSeek / 智谱**（口语优化）
 
 ---
 
-## 🔒 隐私
+## 📁 项目结构
 
-- 语音数据默认由**本地模型**处理，不上传云端。
-- 历史记录仅保存在你的设备本地。
-- 仅当你**主动选择**云端识别（科大讯飞）或大模型优化（DeepSeek / 智谱）时，相应数据才会发送到对应服务商；API Key 由你自己持有。
-
----
-
-## 🛠 技术栈
-
-- **桌面框架**：Electron + electron-vite + electron-builder
-- **前端**：React 19 + TypeScript + Tailwind CSS
-- **状态管理**：Zustand
-- **本地存储**：electron-store
-- **本地 ASR**：Sherpa-onnx（SenseVoice 模型）
-- **云 ASR**：科大讯飞「中英识别大模型」
-- **口语优化**：DeepSeek / 智谱（OpenAI 兼容接口）
+```
+open-voice-type/
+├── src/
+│   ├── main/            # Electron 主进程：窗口、托盘、全局热键、转录收尾
+│   │   ├── services/    #   sherpa-onnx / iflytek-asr / llm-optimizer
+│   │   └── utils/       #   系统粘贴、文本后处理
+│   ├── preload/         # Preload 脚本，暴露安全 IPC 桥接
+│   ├── renderer/        # React 渲染层（components / stores）
+│   └── shared/          # 主 / 渲染共享类型
+├── resources/sherpa-onnx/   # 本地识别二进制与模型（运行时下载）
+├── electron.vite.config.ts
+└── package.json
+```
 
 ---
 
-## 🤝 贡献
+## 🤝 参与贡献
 
-欢迎提交 Issue 与 Pull Request！无论是修 Bug、加功能、完善文档，还是适配更多平台/识别引擎，都非常欢迎。详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+欢迎 Issue 与 PR！无论是修 Bug、加功能、完善文档，还是适配更多平台 / 识别引擎，都非常欢迎。先在 Issue 中描述问题或提案，我们一起把它做得更好。详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
-如果这个项目对你有帮助，欢迎点一个 ⭐ Star，让更多人发现它。
+## 📄 许可证
+
+本项目基于 [MIT](./LICENSE) 许可证开源。
 
 ---
 
-## 📄 License
+<div align="center">
 
-[MIT](./LICENSE) © OpenVoiceType Contributors
+如果这个项目帮到了你，欢迎点个 ⭐ Star 支持一下！
+
+</div>

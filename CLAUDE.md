@@ -5,7 +5,7 @@
 ## 项目简介
 
 **open-voice-type（语音输入助手）** —— 仿 Typeless 的本地优先 AI 语音输入工具（Electron + React，主要面向 Windows）。
-核心流程：全局热键 `Ctrl+Alt+V` 录音 → 语音识别（ASR）→ 口语优化（大模型）→ 自动粘贴到当前输入框。
+核心流程：全局热键 `Ctrl+Alt+V` 录音 → 语音识别（ASR）→ 口语优化（大模型，可选）→ 自动粘贴到当前输入框。另新增 `Ctrl+Alt+F` 为**边说边翻译**热键（Typeless 同款）：口述内容直接翻译成目标语言并粘贴，只输出译文。
 
 ## 技术栈
 
@@ -31,7 +31,7 @@ npm run dist       # 打包 Windows 安装包
 
 **打包**：`npm run dist`，产物在 `release/`：安装包 `语音输入助手 Setup <版本>.exe`（约 110MB）、`latest.yml`、`.blockmap`。`release/`、`dist`、`dist-electron`、`node_modules` 均已 gitignore。版本号取自 `package.json` 的 `version`。
 
-**打包后白屏/图裂的坑（dev 正常 ≠ 打包正常）**：① renderer 构建输出在 `dist/`（不是 electron-vite 默认的 `dist-electron/renderer/`），主进程生产环境用 `loadRenderer()` 走 `win.loadFile(dist/index.html, {query:{mode}})` 加载，**别拼 `file://` 字符串**（Windows 反斜杠 + query 会解析出错）。② renderer 里引用图片等静态资源**必须 `import`**（如 `import logo from './assets/logo.png'`），不能写源码路径字符串，否则打包后资源丢失。③ 改完打包务必真装/真验（可用 win-unpacked exe + 远程调试 + CDP 检查 DOM）。详见记忆 `packaging-asset-paths`。
+**打包后白屏/图裂/图标丢失的坑（dev 正常 ≠ 打包正常）**：① renderer 构建输出在 `dist/`（不是 electron-vite 默认的 `dist-electron/renderer/`），主进程生产环境用 `loadRenderer()` 走 `win.loadFile(dist/index.html, {query:{mode}})` 加载，**别拼 `file://` 字符串**（Windows 反斜杠 + query 会解析出错）。② renderer 里引用图片等静态资源**必须 `import`**（如 `import logo from './assets/logo.png'`），不能写源码路径字符串，否则打包后资源丢失。③ 运行时窗口/托盘图标通过 `getAssetPath('build','icon.ico')` 读取，生产对应 `resources/build/icon.ico`，务必在 `package.json` 的 `extraResources` 里把图标复制过去（否则只有任务栏 exe 内嵌图标能显示，小窗口/托盘图标会丢）。④ 改完打包务必真装/真验（可用 win-unpacked exe + 远程调试 + CDP 检查 DOM）。详见记忆 `packaging-asset-paths`。
 
 **国内打包下载超时**：electron-builder 首次打包要从 GitHub 拉 Electron 本体与 winCodeSign/NSIS，国内常超时。仓库根已有 `.npmrc` 把这些二进制指向 npmmirror 镜像（`registry` + `electron_mirror` + `electron_builder_binaries_mirror`）根治，**勿删**。
 
@@ -66,6 +66,8 @@ npm run dist       # 打包 Windows 安装包
 
 **口语优化**：`handleTranscriptionResult` 中，若 `enableLlmOptimization` 且对应供应商 API Key 已填 → 调 `optimizeWithLlm`（`src/main/services/llm-optimizer-service.ts`）；失败回退识别原文，不中断粘贴。baseUrl/model 来自该文件的 `LLM_PROVIDERS` 预设。system prompt 在该文件的 `SYSTEM_PROMPT`，已对标 Typeless 多次迭代（盘古之白留白、断句分段、语法纠错并保留语气）；可由用户主导继续演进，但请**谨慎改动**，并始终保持「无实质内容则输出空字符串」为最后一条规则。
 
+**边说边翻译**：`Ctrl+Alt+F` 触发，模式由热键决定并贯穿 `toggleRecording` / `handleTranscriptionResult`。翻译时调 `translateWithLlm`（同文件），用单次 LLM 调用完成「理解意图 + 翻译成目标语言」，只输出译文并粘贴；失败同样回退原文。目标语言在设置页可选（`translationTargetLang`），复用口语优化的大模型供应商与 API Key。
+
 **录音条状态机（易误改，谨慎）**：popup 的转录态由 main 的 `globalPhase`（`idle`/`recording`/`transcribing`）独占控制——`ipcMain.on('recording-state')` 只在 `recording` 阶段才用 voiceWindow 状态驱动 popup（实时声波）。Thinking 必须覆盖「ASR + 口语优化」全过程，并在 `handleTranscriptionResult` 里于**粘贴/复制之前**就关闭（`globalPhase='idle'` + hide），让"思考结束"先于"出字"。详见记忆 `recording-popup-flow`。声波由 `RecordingPopup.tsx` 的 `SoundWave` 自驱动（每根条独立相位、音量控制振幅）。转录卡死兜底（仅自动）：ASR 失败/空 → `notifyTranscriptionFailed`(`global-voice-failed`) 即时收尾；LLM fetch 20s AbortController 超时回退原文；main 端 45s 看门狗强制收尾；收尾统一走 `finishTranscribing()`，并丢弃超时后迟到的结果。
 
 ## 目录要点
@@ -80,5 +82,6 @@ npm run dist       # 打包 Windows 安装包
 - **参考姊妹项目**：`D:\workspace\my-work\translation-assistant` 是同源项目，讯飞、LLM 口语优化等均从它移植；做类似功能优先参考它。
 - **设置数据模型**：`Settings` 里 `llmModel/llmApiKey/llmBaseUrl` 及 `openai*` 为**弃用字段**（保留不破坏存量），实际口语优化以 `LLM_PROVIDERS` 预设 + `llmProvider`/按供应商的 key（`deepseekApiKey`/`zhipuApiKey`）为准。
 - **口语优化取舍**：只用大模型，无基础规则档；个人词典纠正仅在口语优化开启时通过 prompt 注入生效。
-- **历史记录模型标注**：`HistoryItem.asrProvider` / `llmProvider` 存的是**生成时的模型快照**（在 `handleTranscriptionResult` 写入，非读当前设置），否则改设置会让旧记录标签失真；`llmProvider` 仅在口语优化真正成功时记录，HistoryPage 按字段存在显示标签、缺失则不显示。
+- **历史记录模型标注**：`HistoryItem.asrProvider` / `llmProvider` / `translationTargetLang` 存的是**生成时的模型快照**（在 `handleTranscriptionResult` 写入，非读当前设置），否则改设置会让旧记录标签失真；`llmProvider` 在口语优化或翻译成功时记录，`translationTargetLang` 仅在翻译成功时记录；HistoryPage 按字段存在显示标签、缺失则不显示。
 - UI 改动由用户自行验证，不必自行开浏览器截图。
+- 开发模式下侧边栏 app 名旁显示 `DEV` 标签（`import.meta.env.DEV`），避免混淆开发版与正式版。

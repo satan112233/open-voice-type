@@ -2,6 +2,19 @@ export type Theme = 'light' | 'dark' | 'system'
 export type OutputMode = 'paste' | 'copy' | 'confirm'
 export type AsrProvider = 'sherpa' | 'zhipu' | 'iflytek'
 
+// 边说边翻译支持的目标语言。label 用于设置页下拉显示，name 注入翻译 prompt。
+export const TRANSLATION_LANGUAGES = [
+  { code: 'en', label: 'English', name: '英语' },
+  { code: 'zh', label: '中文', name: '中文' },
+  { code: 'ja', label: '日本語', name: '日语' },
+  { code: 'ko', label: '한국어', name: '韩语' },
+  { code: 'fr', label: 'Français', name: '法语' },
+  { code: 'de', label: 'Deutsch', name: '德语' },
+  { code: 'es', label: 'Español', name: '西班牙语' }
+] as const
+
+export type TranslationLangCode = (typeof TRANSLATION_LANGUAGES)[number]['code']
+
 export interface Settings {
   version: number
   theme: Theme
@@ -22,6 +35,9 @@ export interface Settings {
   llmBaseUrl?: string
   llmModel?: string
   enableLlmOptimization: boolean
+  // 边说边翻译：独立全局热键（默认 Ctrl+Alt+F）触发，输出目标语言译文。
+  translationShortcut?: string
+  translationTargetLang?: TranslationLangCode
 }
 
 export interface HistoryItem {
@@ -32,6 +48,8 @@ export interface HistoryItem {
   createdAt: number
   asrProvider?: AsrProvider
   llmProvider?: 'deepseek' | 'zhipu'
+  // 该条为「边说边翻译」生成时记录的目标语言；普通语音输入则为 undefined。
+  translationTargetLang?: TranslationLangCode
 }
 
 export interface DictionaryEntry {

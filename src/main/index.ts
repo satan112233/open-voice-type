@@ -13,17 +13,18 @@ import {
 import path from 'path'
 import { fileURLToPath } from 'url'
 import Store from 'electron-store'
-import { optimizeWithLlm, LLM_PROVIDERS } from './services/llm-optimizer-service'
+import { optimizeWithLlm, translateWithLlm, LLM_PROVIDERS } from './services/llm-optimizer-service'
 import { pasteText } from './utils/system-input'
 import { transcribeWithSherpa } from './services/sherpa-onnx-service'
 import { transcribeWithIflytek } from './services/iflytek-asr-service'
-import type {
-  DictionaryEntry,
-  HistoryItem,
-  RecordingState,
-  Settings,
-  TranscriptionResult,
-  TranscribeAudioRequest
+import {
+  TRANSLATION_LANGUAGES,
+  type DictionaryEntry,
+  type HistoryItem,
+  type RecordingState,
+  type Settings,
+  type TranscriptionResult,
+  type TranscribeAudioRequest
 } from '../shared/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -40,8 +41,12 @@ const DEFAULT_SETTINGS: Settings = {
   historyRetentionDays: 'forever',
   llmProvider: 'deepseek',
   llmModel: 'deepseek-v4-flash',
-  enableLlmOptimization: false
+  enableLlmOptimization: false,
+  translationShortcut: 'Ctrl+Alt+F',
+  translationTargetLang: 'en'
 }
+
+const DEFAULT_TRANSLATION_SHORTCUT = 'Ctrl+Alt+F'
 
 const store = new Store<{
   settings: Settings
@@ -62,6 +67,9 @@ let recordingPopup: BrowserWindow | null = null
 
 let recordingDuration = 0
 let recordingTimer: NodeJS.Timeout | null = null
+// 本次录音的模式：由触发的全局热键决定——'input'=语音输入(可选口语优化)，'translate'=边说边翻译。
+// 仅在主进程判断（voiceWindow 只管录音），收尾时在 handleTranscriptionResult 据此分发。
+let currentMode: 'input' | 'translate' = 'input'
 // popup 转录态的权威阶段：录音阶段才让 voiceWindow 的状态驱动 popup（声波）；
 // 进入 transcribing 后由 main 独占控制，直到 handleTranscriptionResult 收尾，
 // 以保证 Thinking 覆盖「ASR + 口语优化 + 粘贴」整个过程。
@@ -196,7 +204,7 @@ function createTray(): Tray {
     },
     {
       label: '开始语音输入',
-      click: () => toggleRecording()
+      click: () => toggleRecording('input')
     },
     { type: 'separator' },
     {
@@ -269,8 +277,9 @@ async function ensureRecordingPopup(): Promise<void> {
   }
 }
 
-async function startGlobalRecording(): Promise<void> {
-  console.log('[main] startGlobalRecording called')
+async function startGlobalRecording(mode: 'input' | 'translate'): Promise<void> {
+  console.log(`[main] startGlobalRecording called (mode=${mode})`)
+  currentMode = mode
   globalPhase = 'recording'
   await ensureVoiceWindow()
   await ensureRecordingPopup()
@@ -345,13 +354,14 @@ function cancelGlobalRecording(): void {
   finishTranscribing()
 }
 
-async function toggleRecording(): Promise<void> {
+async function toggleRecording(mode: 'input' | 'translate'): Promise<void> {
   if (globalPhase === 'transcribing') return
 
   if (globalPhase === 'recording') {
+    // 录音中再次按任意热键都停止；模式在开始时已锁定，忽略本次 mode。
     stopGlobalRecording()
   } else {
-    await startGlobalRecording()
+    await startGlobalRecording(mode)
   }
 }
 
@@ -382,25 +392,41 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     const dictionary = store.get('dictionary')
 
     let rawText = text
-    let optimizedText = text
-    // 实际成功用过的口语优化模型（用于历史记录标注）；未优化或失败回退时保持 undefined。
+    let outputText = text
+    // 实际成功用过的大模型供应商（口语优化或翻译，用于历史标注）；未调用或失败回退时保持 undefined。
     let usedLlmProvider: 'deepseek' | 'zhipu' | undefined
+    // 实际成功用过的翻译目标语言（仅翻译模式成功时记录）。
+    let usedTargetLang: Settings['translationTargetLang']
 
     const provider = settings.llmProvider || 'deepseek'
     const apiKey = provider === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey
-    if (settings.enableLlmOptimization && apiKey?.trim()) {
+
+    if (currentMode === 'translate' && apiKey?.trim()) {
+      // 边说边翻译：单次调用把口述意图理解并翻译成目标语言，只输出译文。
+      const targetLang = settings.translationTargetLang || 'en'
+      const langName = TRANSLATION_LANGUAGES.find((l) => l.code === targetLang)?.name ?? '英语'
       try {
         const { baseUrl, model } = LLM_PROVIDERS[provider]
-        optimizedText = await optimizeWithLlm(text, { apiKey, baseUrl, model }, dictionary)
+        outputText = await translateWithLlm(text, { apiKey, baseUrl, model }, langName, dictionary)
+        usedLlmProvider = provider
+        usedTargetLang = targetLang
+      } catch (error) {
+        console.error('[main] translation failed, falling back to raw text:', error)
+        outputText = text
+      }
+    } else if (settings.enableLlmOptimization && apiKey?.trim()) {
+      try {
+        const { baseUrl, model } = LLM_PROVIDERS[provider]
+        outputText = await optimizeWithLlm(text, { apiKey, baseUrl, model }, dictionary)
         usedLlmProvider = provider
       } catch (error) {
         console.error('[main] LLM optimization failed, falling back to raw text:', error)
-        optimizedText = text
+        outputText = text
       }
     }
 
     const result: TranscriptionResult = {
-      text: optimizedText,
+      text: outputText,
       rawText,
       duration: recordingDuration
     }
@@ -408,12 +434,13 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     if (settings.saveHistory) {
       const historyItem: HistoryItem = {
         id: crypto.randomUUID(),
-        text: optimizedText,
+        text: outputText,
         rawText,
         duration: recordingDuration,
         createdAt: Date.now(),
         asrProvider: settings.asrProvider,
-        llmProvider: usedLlmProvider
+        llmProvider: usedLlmProvider,
+        translationTargetLang: usedTargetLang
       }
       const history = store.get('history')
       history.unshift(historyItem)
@@ -421,13 +448,13 @@ async function handleTranscriptionResult(text: string): Promise<void> {
       store.set('history', history)
     }
 
-    // 口语优化已完成：先收起 Thinking，再输出内容，让"思考结束"早于"出字"
+    // 口语优化/翻译已完成：先收起 Thinking，再输出内容，让"思考结束"早于"出字"
     finishTranscribing()
 
     if (settings.outputMode === 'paste') {
-      await pasteText(optimizedText)
+      await pasteText(outputText)
     } else if (settings.outputMode === 'copy') {
-      clipboard.writeText(optimizedText)
+      clipboard.writeText(outputText)
     }
 
     mainWindow?.webContents.send('transcription-result', result)
@@ -438,29 +465,44 @@ async function handleTranscriptionResult(text: string): Promise<void> {
   }
 }
 
-function registerGlobalShortcut(shortcut: string): void {
-  globalShortcut.unregisterAll()
-
-  let accelerator = shortcut
-  if (shortcut === 'Right Alt') {
+// 解析一个全局热键加速器：处理 Right Alt 特例与无效/裸修饰键回退。
+function resolveAccelerator(shortcut: string | undefined, fallback: string): string {
+  let accelerator = shortcut || fallback
+  if (accelerator === 'Right Alt') {
     accelerator = 'Alt+Shift+V'
   }
-
   const bareModifierPattern = /^(Alt|Ctrl|Control|Shift|Command|Cmd|Super|Meta)$/i
   if (bareModifierPattern.test(accelerator)) {
-    console.warn(`[shortcut] Invalid accelerator '${accelerator}', falling back to Ctrl+Alt+V`)
-    accelerator = 'Ctrl+Alt+V'
+    console.warn(`[shortcut] Invalid accelerator '${accelerator}', falling back to ${fallback}`)
+    accelerator = fallback
+  }
+  return accelerator
+}
+
+// 注册两枚全局热键：语音输入(settings.shortcut) 与 边说边翻译(settings.translationShortcut)。
+function registerGlobalShortcuts(settings: Settings): void {
+  globalShortcut.unregisterAll()
+
+  const inputAccelerator = resolveAccelerator(settings.shortcut, 'Ctrl+Alt+V')
+  const translateAccelerator = resolveAccelerator(settings.translationShortcut, DEFAULT_TRANSLATION_SHORTCUT)
+
+  const register = (accelerator: string, mode: 'input' | 'translate') => {
+    const registered = globalShortcut.register(accelerator, () => {
+      toggleRecording(mode)
+    })
+    if (!registered) {
+      console.warn(`[shortcut] Failed to register ${mode} shortcut: ${accelerator}`)
+    } else {
+      console.log(`[shortcut] ${mode} shortcut registered: ${accelerator}`)
+    }
   }
 
-  const registered = globalShortcut.register(accelerator, () => {
-    toggleRecording()
-  })
-
-  if (!registered) {
-    console.warn(`[shortcut] Failed to register global shortcut: ${accelerator}`)
+  register(inputAccelerator, 'input')
+  // 两键相同会冲突，翻译键与输入键一致时跳过，避免覆盖输入键。
+  if (translateAccelerator !== inputAccelerator) {
+    register(translateAccelerator, 'translate')
   } else {
-    console.log(`[shortcut] Global shortcut registered: ${accelerator}`)
-    console.log(`[shortcut] isRegistered check:`, globalShortcut.isRegistered(accelerator))
+    console.warn('[shortcut] translation shortcut equals input shortcut, skipped')
   }
 }
 
@@ -471,8 +513,11 @@ function setupIpc(): void {
     const next = { ...current, ...settings }
     store.set('settings', next)
 
-    if (settings.shortcut !== undefined && settings.shortcut !== current.shortcut) {
-      registerGlobalShortcut(next.shortcut)
+    const shortcutChanged = settings.shortcut !== undefined && settings.shortcut !== current.shortcut
+    const translationShortcutChanged =
+      settings.translationShortcut !== undefined && settings.translationShortcut !== current.translationShortcut
+    if (shortcutChanged || translationShortcutChanged) {
+      registerGlobalShortcuts(next)
     }
   })
 
@@ -554,7 +599,7 @@ app.whenReady().then(() => {
   tray = createTray()
 
   setupIpc()
-  registerGlobalShortcut(settings.shortcut)
+  registerGlobalShortcuts(settings)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

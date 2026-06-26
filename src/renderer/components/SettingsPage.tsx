@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { Moon, Sun, Monitor, Keyboard, FileText, Database, Sparkles, Mic, ChevronDown, Check } from 'lucide-react'
+import { Moon, Sun, Monitor, Keyboard, FileText, Database, Sparkles, Mic, Languages, ChevronDown, Check } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
-import type { Settings } from '@shared/types'
+import { TRANSLATION_LANGUAGES, type Settings } from '@shared/types'
 
 export function SettingsPage() {
   const { settings, updateSettings } = useSettingsStore()
   const [localShortcut, setLocalShortcut] = useState('')
+  const [localTranslationShortcut, setLocalTranslationShortcut] = useState('')
 
   useEffect(() => {
     if (settings) {
       setLocalShortcut(settings.shortcut)
+      setLocalTranslationShortcut(settings.translationShortcut || 'Ctrl+Alt+F')
     }
   }, [settings])
 
@@ -17,8 +19,8 @@ export function SettingsPage() {
     return <div className="p-8 text-center text-[var(--text-secondary)]">加载中...</div>
   }
 
-  const handleShortcutKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    e.preventDefault()
+  // 从键盘事件构造加速器字符串（如 "Ctrl+Alt+F"），无主键时返回 null。
+  const buildShortcut = (e: React.KeyboardEvent<HTMLInputElement>): string | null => {
     const keys: string[] = []
     if (e.ctrlKey) keys.push('Ctrl')
     if (e.altKey) keys.push('Alt')
@@ -29,13 +31,28 @@ export function SettingsPage() {
     if (key && !['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
       keys.push(key.length === 1 ? key.toUpperCase() : key)
     }
+    return keys.length > 0 ? keys.join('+') : null
+  }
 
-    if (keys.length > 0) {
-      const shortcut = keys.join('+')
+  const handleShortcutKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const shortcut = buildShortcut(e)
+    if (shortcut) {
       setLocalShortcut(shortcut)
       updateSettings({ shortcut })
     }
   }
+
+  const handleTranslationShortcutKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const shortcut = buildShortcut(e)
+    if (shortcut) {
+      setLocalTranslationShortcut(shortcut)
+      updateSettings({ translationShortcut: shortcut })
+    }
+  }
+
+  const llmProvider = settings.llmProvider || 'deepseek'
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -165,58 +182,95 @@ export function SettingsPage() {
       </SettingSection>
 
       <SettingSection title="口语优化" icon={Sparkles}>
+        <div className="flex items-center justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-4 py-3">
+          <div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">启用口语优化</div>
+            <div className="text-xs text-[var(--text-tertiary)]">语音输入时用大模型整理口语：去填充词、改口纠正、自动标点</div>
+          </div>
+          <Switch
+            checked={settings.enableLlmOptimization}
+            onChange={(v) => updateSettings({ enableLlmOptimization: v })}
+          />
+        </div>
+      </SettingSection>
+
+      <SettingSection title="边说边翻译" icon={Languages}>
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-4 py-3">
-            <div>
-              <div className="text-sm font-medium text-[var(--text-primary)]">启用口语优化</div>
-              <div className="text-xs text-[var(--text-tertiary)]">用大模型整理口语：去填充词、改口纠正、自动标点</div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+              翻译热键
+            </label>
+            <div className="relative">
+              <Keyboard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={localTranslationShortcut}
+                onKeyDown={handleTranslationShortcutKeyDown}
+                readOnly
+                placeholder="按下快捷键..."
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] focus:border-[var(--primary-color)] focus:outline-none"
+              />
             </div>
-            <Switch
-              checked={settings.enableLlmOptimization}
-              onChange={(v) => updateSettings({ enableLlmOptimization: v })}
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+              按下该热键录音，松手后直接输出目标语言译文（与语音输入用不同的键）。推荐 Ctrl+Alt+F。
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+              目标语言
+            </label>
+            <Dropdown
+              value={settings.translationTargetLang || 'en'}
+              onChange={(v) => updateSettings({ translationTargetLang: v as Settings['translationTargetLang'] })}
+              options={TRANSLATION_LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
             />
           </div>
 
-          {settings.enableLlmOptimization && (
-            <>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                  优化大模型
-                </label>
-                <Dropdown
-                  value={settings.llmProvider || 'deepseek'}
-                  onChange={(v) => updateSettings({ llmProvider: v as Settings['llmProvider'] })}
-                  options={[
-                    { value: 'deepseek', label: 'DeepSeek' },
-                    { value: 'zhipu', label: '智谱 AI' }
-                  ]}
-                />
-              </div>
+          <p className="text-xs text-[var(--text-tertiary)]">
+            翻译复用下方「大模型」所配置的供应商与 API Key，需先填好 Key 才能翻译。
+          </p>
+        </div>
+      </SettingSection>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                  {(settings.llmProvider || 'deepseek') === 'zhipu' ? '智谱 AI' : 'DeepSeek'} API Key
-                </label>
-                <input
-                  type="password"
-                  value={((settings.llmProvider || 'deepseek') === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey) || ''}
-                  onChange={(e) =>
-                    updateSettings(
-                      (settings.llmProvider || 'deepseek') === 'zhipu'
-                        ? { zhipuApiKey: e.target.value }
-                        : { deepseekApiKey: e.target.value }
-                    )
-                  }
-                  placeholder="填写所选大模型的 API Key"
-                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
-                />
-              </div>
+      <SettingSection title="大模型（口语优化 / 翻译共用）" icon={Sparkles}>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+              供应商
+            </label>
+            <Dropdown
+              value={llmProvider}
+              onChange={(v) => updateSettings({ llmProvider: v as Settings['llmProvider'] })}
+              options={[
+                { value: 'deepseek', label: 'DeepSeek' },
+                { value: 'zhipu', label: '智谱 AI' }
+              ]}
+            />
+          </div>
 
-              <p className="text-xs text-[var(--text-tertiary)]">
-                未填写 API Key 时，识别结果将原样输出，不做优化。DeepSeek、智谱 AI 均兼容 OpenAI 接口。
-              </p>
-            </>
-          )}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+              {llmProvider === 'zhipu' ? '智谱 AI' : 'DeepSeek'} API Key
+            </label>
+            <input
+              type="password"
+              value={(llmProvider === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey) || ''}
+              onChange={(e) =>
+                updateSettings(
+                  llmProvider === 'zhipu'
+                    ? { zhipuApiKey: e.target.value }
+                    : { deepseekApiKey: e.target.value }
+                )
+              }
+              placeholder="填写所选大模型的 API Key"
+              className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+            />
+          </div>
+
+          <p className="text-xs text-[var(--text-tertiary)]">
+            DeepSeek、智谱 AI 均兼容 OpenAI 接口。口语优化与翻译共用此配置；未填 Key 时口语优化不生效、翻译会回退为输出原文。
+          </p>
         </div>
       </SettingSection>
 

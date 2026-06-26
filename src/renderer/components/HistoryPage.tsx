@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Copy, Trash2, Clock, Search, X, Mic, Sparkles } from 'lucide-react'
-import type { HistoryItem } from '@shared/types'
+import { Copy, Trash2, Clock, Search, X, Mic, Sparkles, Languages } from 'lucide-react'
+import { TRANSLATION_LANGUAGES, type HistoryItem } from '@shared/types'
 
 const ASR_LABELS: Record<string, string> = {
   sherpa: '本地 Sherpa',
@@ -12,6 +12,10 @@ const LLM_LABELS: Record<string, string> = {
   deepseek: 'DeepSeek',
   zhipu: '智谱 AI'
 }
+
+const LANG_LABELS: Record<string, string> = Object.fromEntries(
+  TRANSLATION_LANGUAGES.map((l) => [l.code, l.label])
+)
 
 export function HistoryPage() {
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -117,6 +121,12 @@ export function HistoryPage() {
                     <span className="flex items-center gap-1 rounded-md bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[var(--text-secondary)]">
                       <Sparkles className="h-3 w-3" />
                       {LLM_LABELS[item.llmProvider] ?? item.llmProvider}
+                    </span>
+                  )}
+                  {item.translationTargetLang && (
+                    <span className="flex items-center gap-1 rounded-md bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[var(--text-secondary)]">
+                      <Languages className="h-3 w-3" />
+                      译·{LANG_LABELS[item.translationTargetLang] ?? item.translationTargetLang}
                     </span>
                   )}
                 </div>

@@ -52,25 +52,19 @@ function buildDictionaryReference(dictionary?: DictionaryEntry[]): string {
   return `【术语参考】以下是用户常用专有名词/术语的正确写法。若识别文本中出现读音相近但拼写有误的词，请据此纠正为正确写法；不相关的词不要强行替换：\n${list}\n\n`
 }
 
-export async function optimizeWithLlm(
-  text: string,
+/**
+ * 调用 OpenAI 兼容的 chat/completions 的共享核心：拼 url、20s 超时、错误处理、取首条回复。
+ * optimize 与 translate 共用，errorLabel 用于区分报错文案（如「口语优化」「翻译」）。
+ */
+async function callChatCompletion(
+  systemPrompt: string,
+  userContent: string,
   config: { apiKey: string; baseUrl: string; model: string },
-  dictionary?: DictionaryEntry[]
+  errorLabel: string
 ): Promise<string> {
-  if (!config.apiKey?.trim()) {
-    throw new Error('未配置大模型 API Key，无法进行口语优化')
-  }
-
-  if (!text.trim()) {
-    return text
-  }
-
   const url = config.baseUrl.endsWith('/')
     ? `${config.baseUrl}chat/completions`
     : `${config.baseUrl}/chat/completions`
-
-  const dictionaryReference = buildDictionaryReference(dictionary)
-  const userContent = `${dictionaryReference}原始口语文本：\n"""\n${text}\n"""\n\n请直接输出优化后的文本：`
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 20_000)
@@ -86,7 +80,7 @@ export async function optimizeWithLlm(
       body: JSON.stringify({
         model: config.model,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
         ],
         temperature: 0.3,
@@ -96,7 +90,7 @@ export async function optimizeWithLlm(
     })
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('口语优化请求超时')
+      throw new Error(`${errorLabel}请求超时`)
     }
     throw error
   } finally {
@@ -106,13 +100,66 @@ export async function optimizeWithLlm(
   const data = (await response.json()) as ChatCompletionResponse
 
   if (!response.ok) {
-    throw new Error(`口语优化请求失败：${data.error?.message || response.statusText || response.status}`)
+    throw new Error(`${errorLabel}请求失败：${data.error?.message || response.statusText || response.status}`)
   }
 
-  const optimized = data.choices?.[0]?.message?.content?.trim()
-  if (!optimized) {
-    throw new Error('口语优化返回结果为空')
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) {
+    throw new Error(`${errorLabel}返回结果为空`)
   }
 
-  return optimized
+  return content
+}
+
+export async function optimizeWithLlm(
+  text: string,
+  config: { apiKey: string; baseUrl: string; model: string },
+  dictionary?: DictionaryEntry[]
+): Promise<string> {
+  if (!config.apiKey?.trim()) {
+    throw new Error('未配置大模型 API Key，无法进行口语优化')
+  }
+
+  if (!text.trim()) {
+    return text
+  }
+
+  const dictionaryReference = buildDictionaryReference(dictionary)
+  const userContent = `${dictionaryReference}原始口语文本：\n"""\n${text}\n"""\n\n请直接输出优化后的文本：`
+
+  return callChatCompletion(SYSTEM_PROMPT, userContent, config, '口语优化')
+}
+
+/**
+ * 边说边翻译的 system prompt：先理解口述意图再翻译成目标语言，输出地道母语表达，只出译文。
+ */
+function buildTranslatePrompt(targetLangName: string): string {
+  return `你是一位智能的语音翻译助手。用户会口述一段话，请把它翻译成${targetLangName}，让译文像母语者精心书写的内容一样自然、地道。
+
+处理原则：
+1. 先理解口述意图再翻译：识别说话人的"改口/自我修正"（出现"不对""错了""应该是""我是说""改为"等信号时只翻译最后的正确表述）；移除"嗯""啊""那个""然后"等填充词与无意义的重复；修正语音识别产生的同音字、相近音错误。
+2. 译文要符合${targetLangName}母语者的自然表达与习惯，准确传达原意与语气，而不是逐字直译。
+3. 若下方提供了术语参考，请据此保证人名、品牌、专有名词的正确译写或保留。
+4. 只输出${targetLangName}译文，不要附加任何解释、注释，也不要保留原文。
+5. 如果原始文本没有实质性内容（只有语气词、停顿词、标点符号或为空），请直接输出空字符串。`
+}
+
+export async function translateWithLlm(
+  text: string,
+  config: { apiKey: string; baseUrl: string; model: string },
+  targetLangName: string,
+  dictionary?: DictionaryEntry[]
+): Promise<string> {
+  if (!config.apiKey?.trim()) {
+    throw new Error('未配置大模型 API Key，无法进行翻译')
+  }
+
+  if (!text.trim()) {
+    return text
+  }
+
+  const dictionaryReference = buildDictionaryReference(dictionary)
+  const userContent = `${dictionaryReference}原始口语文本：\n"""\n${text}\n"""\n\n请直接输出${targetLangName}译文：`
+
+  return callChatCompletion(buildTranslatePrompt(targetLangName), userContent, config, '翻译')
 }

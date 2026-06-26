@@ -54,13 +54,18 @@ export default function App() {
     <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-primary)]">
       {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-secondary)] flex flex-col">
-        <div className="app-drag-region flex items-center gap-3 px-5 py-4">
+        <div className="app-drag-region flex items-center gap-2 px-4 py-4">
           <img
             src={logoUrl}
             alt="OpenVoiceType"
-            className="h-8 w-8 rounded-lg object-cover"
+            className="h-8 w-8 shrink-0 rounded-lg object-cover"
           />
-          <span className="font-semibold text-[var(--text-primary)]">语音输入助手</span>
+          <span className="whitespace-nowrap font-semibold text-[var(--text-primary)]">语音输入助手</span>
+          {import.meta.env.DEV && (
+            <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+              DEV
+            </span>
+          )}
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-2">

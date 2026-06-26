@@ -67,7 +67,7 @@ export function HomePage() {
           />
           <TipCard
             icon={Shield}
-            title="本地识别，隐私可控"
+            title="保护个人隐私"
             description="语音数据默认由本地模型处理，不会上传到云端。"
           />
           <TipCard

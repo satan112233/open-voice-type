@@ -68,6 +68,11 @@ npm run dist       # 打包 Windows 安装包
 
 **边说边翻译**：`Ctrl+Alt+F` 触发，模式由热键决定并贯穿 `toggleRecording` / `handleTranscriptionResult`。翻译时调 `translateWithLlm`（同文件），用单次 LLM 调用完成「理解意图 + 翻译成目标语言」，只输出译文并粘贴；失败同样回退原文。目标语言在设置页可选（`translationTargetLang`），复用口语优化的大模型供应商与 API Key。
 
+**全局快捷键**：
+- `Ctrl+Alt+V` — 开始 / 停止语音输入（`toggleRecording('input')`）。
+- `Ctrl+Alt+F` — 开始 / 停止边说边翻译（`toggleRecording('translate')`）。
+- 录音过程中额外临时注册 `Enter`（确认结束并提交）与 `Escape`（取消并丢弃），录音结束立即注销，避免日常冲突。
+
 **录音条状态机（易误改，谨慎）**：popup 的转录态由 main 的 `globalPhase`（`idle`/`recording`/`transcribing`）独占控制——`ipcMain.on('recording-state')` 只在 `recording` 阶段才用 voiceWindow 状态驱动 popup（实时声波）。Thinking 必须覆盖「ASR + 口语优化」全过程，并在 `handleTranscriptionResult` 里于**粘贴/复制之前**就关闭（`globalPhase='idle'` + hide），让"思考结束"先于"出字"。详见记忆 `recording-popup-flow`。声波由 `RecordingPopup.tsx` 的 `SoundWave` 自驱动（每根条独立相位、音量控制振幅）。转录卡死兜底（仅自动）：ASR 失败/空 → `notifyTranscriptionFailed`(`global-voice-failed`) 即时收尾；LLM fetch 20s AbortController 超时回退原文；main 端 45s 看门狗强制收尾；收尾统一走 `finishTranscribing()`，并丢弃超时后迟到的结果。
 
 ## 目录要点

@@ -30,10 +30,17 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 process.env.APP_ROOT = path.join(__dirname, '../..')
 
+const DEFAULT_SHORTCUT = 'Ctrl+Alt+V'
+const DEFAULT_TRANSLATION_SHORTCUT = 'Ctrl+Alt+F'
+
+// 录音期间临时注册的确认/取消快捷键，录音结束立即注销，避免和日常按键冲突。
+const STOP_RECORDING_ACCELERATOR = 'Enter'
+const CANCEL_RECORDING_ACCELERATOR = 'Escape'
+
 const DEFAULT_SETTINGS: Settings = {
   version: 1,
   theme: 'system',
-  shortcut: 'Ctrl+Alt+V',
+  shortcut: DEFAULT_SHORTCUT,
   outputMode: 'paste',
   asrProvider: 'sherpa',
   optimizeSpeech: true,
@@ -42,11 +49,9 @@ const DEFAULT_SETTINGS: Settings = {
   llmProvider: 'deepseek',
   llmModel: 'deepseek-v4-flash',
   enableLlmOptimization: false,
-  translationShortcut: 'Ctrl+Alt+F',
+  translationShortcut: DEFAULT_TRANSLATION_SHORTCUT,
   translationTargetLang: 'en'
 }
-
-const DEFAULT_TRANSLATION_SHORTCUT = 'Ctrl+Alt+F'
 
 const store = new Store<{
   settings: Settings
@@ -236,6 +241,8 @@ function finishTranscribing(): void {
   globalPhase = 'idle'
   recordingDuration = 0
   recordingPopup?.hide()
+  // 释放录音期间临时注册的 Enter/Escape 快捷键。
+  unregisterRecordingShortcuts()
   sendRecordingState({
     isRecording: false,
     isTranscribing: false,
@@ -314,6 +321,9 @@ async function startGlobalRecording(mode: 'input' | 'translate'): Promise<void> 
       canCancel: true
     })
   }, 1000)
+
+  // 录音期间注册临时结束键：Enter 确认结束，Escape 取消。
+  registerRecordingShortcuts(store.get('settings'))
 }
 
 function stopGlobalRecording(): void {
@@ -504,6 +514,34 @@ function registerGlobalShortcuts(settings: Settings): void {
   } else {
     console.warn('[shortcut] translation shortcut equals input shortcut, skipped')
   }
+}
+
+// 录音期间临时注册 Enter（确认结束）与 Escape（取消）快捷键；录音结束立即注销。
+function registerRecordingShortcuts(settings: Settings): void {
+  const inputAccelerator = resolveAccelerator(settings.shortcut, DEFAULT_SHORTCUT)
+  const translateAccelerator = resolveAccelerator(settings.translationShortcut, DEFAULT_TRANSLATION_SHORTCUT)
+
+  const registerStop = (accelerator: string, action: () => void, label: string) => {
+    // 避免与开始热键冲突：若用户把开始键设成了 Enter/Escape，则不注册对应停止键。
+    if (accelerator === inputAccelerator || accelerator === translateAccelerator) {
+      console.warn(`[recording-shortcut] skip ${label} '${accelerator}' because it equals a start shortcut`)
+      return
+    }
+    const ok = globalShortcut.register(accelerator, action)
+    if (!ok) {
+      console.warn(`[recording-shortcut] failed to register ${label}: ${accelerator}`)
+    } else {
+      console.log(`[recording-shortcut] registered ${label}: ${accelerator}`)
+    }
+  }
+
+  registerStop(STOP_RECORDING_ACCELERATOR, stopGlobalRecording, 'stop/confirm')
+  registerStop(CANCEL_RECORDING_ACCELERATOR, cancelGlobalRecording, 'cancel')
+}
+
+function unregisterRecordingShortcuts(): void {
+  globalShortcut.unregister(STOP_RECORDING_ACCELERATOR)
+  globalShortcut.unregister(CANCEL_RECORDING_ACCELERATOR)
 }
 
 function setupIpc(): void {

@@ -63,7 +63,7 @@ export function HomePage() {
           <TipCard
             icon={Keyboard}
             title="按住热键说话"
-            description={`默认使用 ${settings?.shortcut || 'Right Alt'}，可在设置中自定义。`}
+            description={`默认使用 ${settings?.shortcut || 'Right Alt'} 开始，按 Enter 结束，按 Esc 取消，可在设置中自定义。`}
           />
           <TipCard
             icon={Shield}

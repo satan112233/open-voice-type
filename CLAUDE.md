@@ -29,7 +29,9 @@ npm run dist       # 打包 Windows 安装包
 
 ## 打包与发布
 
-**打包**：`npm run dist`，产物在 `release/`：安装包 `语音输入助手 Setup <版本>.exe`（约 123MB）、`latest.yml`、`.blockmap`。`release/`、`dist`、`dist-electron`、`node_modules` 均已 gitignore。版本号取自 `package.json` 的 `version`。
+**打包**：`npm run dist`，产物在 `release/`：安装包 `语音输入助手 Setup <版本>.exe`（约 110MB）、`latest.yml`、`.blockmap`。`release/`、`dist`、`dist-electron`、`node_modules` 均已 gitignore。版本号取自 `package.json` 的 `version`。
+
+**打包后白屏/图裂的坑（dev 正常 ≠ 打包正常）**：① renderer 构建输出在 `dist/`（不是 electron-vite 默认的 `dist-electron/renderer/`），主进程生产环境用 `loadRenderer()` 走 `win.loadFile(dist/index.html, {query:{mode}})` 加载，**别拼 `file://` 字符串**（Windows 反斜杠 + query 会解析出错）。② renderer 里引用图片等静态资源**必须 `import`**（如 `import logo from './assets/logo.png'`），不能写源码路径字符串，否则打包后资源丢失。③ 改完打包务必真装/真验（可用 win-unpacked exe + 远程调试 + CDP 检查 DOM）。详见记忆 `packaging-asset-paths`。
 
 **国内打包下载超时**：electron-builder 首次打包要从 GitHub 拉 Electron 本体与 winCodeSign/NSIS，国内常超时。仓库根已有 `.npmrc` 把这些二进制指向 npmmirror 镜像（`registry` + `electron_mirror` + `electron_builder_binaries_mirror`）根治，**勿删**。
 
@@ -62,7 +64,7 @@ npm run dist       # 打包 Windows 安装包
   → handleTranscriptionResult：口语优化(可选) → 存历史 → 粘贴/复制
 ```
 
-**口语优化**：`handleTranscriptionResult` 中，若 `enableLlmOptimization` 且对应供应商 API Key 已填 → 调 `optimizeWithLlm`（`src/main/services/llm-optimizer-service.ts`）；失败回退识别原文，不中断粘贴。baseUrl/model 来自该文件的 `LLM_PROVIDERS` 预设。system prompt 已定稿，**勿改动**。
+**口语优化**：`handleTranscriptionResult` 中，若 `enableLlmOptimization` 且对应供应商 API Key 已填 → 调 `optimizeWithLlm`（`src/main/services/llm-optimizer-service.ts`）；失败回退识别原文，不中断粘贴。baseUrl/model 来自该文件的 `LLM_PROVIDERS` 预设。system prompt 在该文件的 `SYSTEM_PROMPT`，已对标 Typeless 多次迭代（盘古之白留白、断句分段、语法纠错并保留语气）；可由用户主导继续演进，但请**谨慎改动**，并始终保持「无实质内容则输出空字符串」为最后一条规则。
 
 **录音条状态机（易误改，谨慎）**：popup 的转录态由 main 的 `globalPhase`（`idle`/`recording`/`transcribing`）独占控制——`ipcMain.on('recording-state')` 只在 `recording` 阶段才用 voiceWindow 状态驱动 popup（实时声波）。Thinking 必须覆盖「ASR + 口语优化」全过程，并在 `handleTranscriptionResult` 里于**粘贴/复制之前**就关闭（`globalPhase='idle'` + hide），让"思考结束"先于"出字"。详见记忆 `recording-popup-flow`。声波由 `RecordingPopup.tsx` 的 `SoundWave` 自驱动（每根条独立相位、音量控制振幅）。转录卡死兜底（仅自动）：ASR 失败/空 → `notifyTranscriptionFailed`(`global-voice-failed`) 即时收尾；LLM fetch 20s AbortController 超时回退原文；main 端 45s 看门狗强制收尾；收尾统一走 `finishTranscribing()`，并丢弃超时后迟到的结果。
 

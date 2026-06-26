@@ -15,6 +15,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Stars](https://img.shields.io/github/stars/satan112233/open-voice-type?style=social)](https://github.com/satan112233/open-voice-type)
 
+### [⬇️ 下载最新版 Windows 安装包](https://github.com/satan112233/open-voice-type/releases/latest)
+
+[![Download](https://img.shields.io/github/v/release/satan112233/open-voice-type?label=%E4%B8%8B%E8%BD%BD%E6%9C%80%E6%96%B0%E7%89%88&logo=github&color=success&sort=semver)](https://github.com/satan112233/open-voice-type/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/satan112233/open-voice-type/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&logo=github)](https://github.com/satan112233/open-voice-type/releases)
+
 </div>
 
 ---
@@ -113,9 +118,13 @@
 
 > 目前主要面向 **Windows 10 / 11**。
 
-### 📥 直接下载使用
+### 📥 直接下载使用（推荐）
 
-> 预编译安装包即将在 [Releases](https://github.com/satan112233/open-voice-type/releases) 提供。在此之前，请按下方「从源码运行」启动，或用 `npm run dist` 自行打包。
+👉 **[前往 Releases 下载最新版安装包](https://github.com/satan112233/open-voice-type/releases/latest)**
+
+下载 `OpenVoiceType-Setup-*.exe`，双击安装后即可使用。首次使用本地识别时，应用会自动下载 SenseVoice 模型（约 160MB）。
+
+> 想自行构建？见下方「从源码运行」或用 `npm run dist` 打包。
 
 ### 🧑‍💻 从源码运行（开发者）
 

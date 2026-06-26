@@ -50,7 +50,8 @@ const DEFAULT_SETTINGS: Settings = {
   llmModel: 'deepseek-v4-flash',
   enableLlmOptimization: false,
   translationShortcut: DEFAULT_TRANSLATION_SHORTCUT,
-  translationTargetLang: 'en'
+  translationTargetLang: 'en',
+  audioInputDeviceId: ''
 }
 
 const store = new Store<{
@@ -297,7 +298,8 @@ async function startGlobalRecording(mode: 'input' | 'translate'): Promise<void> 
   recordingPopup!.setVisibleOnAllWorkspaces(true)
   console.log('[main] recording popup shown, bounds:', recordingPopup!.getBounds())
   console.log('[main] sending start-global-recording to voice window')
-  voiceWindow?.webContents.send('start-global-recording')
+  const audioDeviceId = store.get('settings').audioInputDeviceId
+  voiceWindow?.webContents.send('start-global-recording', audioDeviceId)
 
   recordingDuration = 0
   sendRecordingState({

@@ -7,6 +7,7 @@ export function SettingsPage() {
   const { settings, updateSettings } = useSettingsStore()
   const [localShortcut, setLocalShortcut] = useState('')
   const [localTranslationShortcut, setLocalTranslationShortcut] = useState('')
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
 
   useEffect(() => {
     if (settings) {
@@ -14,6 +15,27 @@ export function SettingsPage() {
       setLocalTranslationShortcut(settings.translationShortcut || 'Ctrl+Alt+F')
     }
   }, [settings])
+
+  // 枚举可用麦克风；若标签为空，先请求一次权限以获取可读标签。
+  useEffect(() => {
+    async function loadDevices() {
+      try {
+        let devices = await navigator.mediaDevices.enumerateDevices()
+        const audioInputs = devices.filter((d) => d.kind === 'audioinput')
+        if (audioInputs.length > 0 && audioInputs.every((d) => !d.label)) {
+          const tmpStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          devices = await navigator.mediaDevices.enumerateDevices()
+          tmpStream.getTracks().forEach((t) => t.stop())
+        }
+        setAudioDevices(devices.filter((d) => d.kind === 'audioinput'))
+      } catch (err) {
+        console.warn('[SettingsPage] failed to enumerate audio devices:', err)
+      }
+    }
+    void loadDevices()
+    navigator.mediaDevices.addEventListener('devicechange', loadDevices)
+    return () => navigator.mediaDevices.removeEventListener('devicechange', loadDevices)
+  }, [])
 
   if (!settings) {
     return <div className="p-8 text-center text-[var(--text-secondary)]">加载中...</div>
@@ -178,6 +200,23 @@ export function SettingsPage() {
               </p>
             </>
           )}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+              麦克风
+            </label>
+            <Dropdown
+              value={settings.audioInputDeviceId || ''}
+              onChange={(v) => updateSettings({ audioInputDeviceId: v || undefined })}
+              options={[
+                { value: '', label: '系统默认麦克风' },
+                ...audioDevices.map((d) => ({ value: d.deviceId, label: d.label || `麦克风 ${d.deviceId.slice(0, 8)}...` }))
+              ]}
+            />
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+              选择用于语音输入的录音设备；切换后下次录音生效。
+            </p>
+          </div>
         </div>
       </SettingSection>
 

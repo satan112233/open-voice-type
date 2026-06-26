@@ -22,7 +22,7 @@ const api: ElectronAPI = {
   },
 
   onStartGlobalRecording: (callback) => {
-    const handler = () => callback()
+    const handler = (_: unknown, deviceId?: string) => callback(deviceId)
     ipcRenderer.on('start-global-recording', handler)
     return () => ipcRenderer.removeListener('start-global-recording', handler)
   },

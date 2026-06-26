@@ -4,7 +4,7 @@ import type { RecordingState, TranscribeAudioResult } from '@shared/types'
 interface RecordingStoreState extends RecordingState {
   transcribedText: string | null
   transcriptionError: string | null
-  startRecording: () => Promise<void>
+  startRecording: (deviceId?: string) => Promise<void>
   stopRecording: () => void
   cancelRecording: () => void
   toggleRecording: () => void
@@ -155,10 +155,22 @@ export const useRecordingStore = create<RecordingStoreState>((set) => ({
     set({ isRecording: false, duration: 0, audioLevel: 0, canCancel: false })
   },
 
-  startRecording: async () => {
-    console.log('[recording store] startRecording called')
+  startRecording: async (deviceId?: string) => {
+    console.log('[recording store] startRecording called', deviceId ? `deviceId=${deviceId}` : 'default')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      let stream: MediaStream
+      if (deviceId) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: deviceId } }
+          })
+        } catch (deviceErr) {
+          console.warn('[recording store] specified audio device unavailable, falling back to default:', deviceErr)
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        }
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      }
       streamRef = stream
 
       try {

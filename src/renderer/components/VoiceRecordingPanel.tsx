@@ -28,11 +28,11 @@ export function VoiceRecordingPanel() {
   // Listen for global recording commands from main process
   useEffect(() => {
     console.log('[voice panel] registering global recording listeners')
-    const unsubscribeStart = window.electronAPI.onStartGlobalRecording(() => {
-      console.log('[voice panel] received start-global-recording, isRecording:', isRecordingRef.current, 'isTranscribing:', isTranscribingRef.current)
+    const unsubscribeStart = window.electronAPI.onStartGlobalRecording((deviceId) => {
+      console.log('[voice panel] received start-global-recording', deviceId ? `deviceId=${deviceId}` : 'default', 'isRecording:', isRecordingRef.current, 'isTranscribing:', isTranscribingRef.current)
       if (!isRecordingRef.current && !isTranscribingRef.current) {
         console.log('[voice panel] calling startRecording')
-        void startRecording()
+        void startRecording(deviceId)
       } else {
         console.log('[voice panel] ignoring start-global-recording')
       }

@@ -38,6 +38,8 @@ export interface Settings {
   // 边说边翻译：独立全局热键（默认 Ctrl+Alt+F）触发，输出目标语言译文。
   translationShortcut?: string
   translationTargetLang?: TranslationLangCode
+  // 录音输入设备（空字符串表示使用系统默认麦克风）。
+  audioInputDeviceId?: string
 }
 
 export interface HistoryItem {
@@ -105,7 +107,7 @@ export interface ElectronAPI {
   sendRecordingState: (state: RecordingState) => void
 
   // Global recording commands (voice window only)
-  onStartGlobalRecording: (callback: () => void) => () => void
+  onStartGlobalRecording: (callback: (deviceId?: string) => void) => () => void
   onStopGlobalRecording: (callback: () => void) => () => void
   onCancelGlobalRecording: (callback: () => void) => () => void
   cancelGlobalRecording: () => Promise<void>

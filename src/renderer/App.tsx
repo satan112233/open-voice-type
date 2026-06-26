@@ -5,6 +5,7 @@ import { HomePage } from './components/HomePage'
 import { HistoryPage } from './components/HistoryPage'
 import { DictionaryPage } from './components/DictionaryPage'
 import { SettingsPage } from './components/SettingsPage'
+import logoUrl from './assets/logo.png'
 
 type View = 'home' | 'history' | 'dictionary' | 'settings'
 
@@ -55,7 +56,7 @@ export default function App() {
       <aside className="w-56 flex-shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-secondary)] flex flex-col">
         <div className="app-drag-region flex items-center gap-3 px-5 py-4">
           <img
-            src="./src/renderer/assets/logo.png"
+            src={logoUrl}
             alt="OpenVoiceType"
             className="h-8 w-8 rounded-lg object-cover"
           />

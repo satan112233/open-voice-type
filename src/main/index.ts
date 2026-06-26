@@ -80,12 +80,17 @@ function getAssetPath(...paths: string[]): string {
   return path.join(process.resourcesPath, ...paths)
 }
 
-function getRendererUrl(mode?: string): string {
+// 加载 renderer：dev 走本地 dev server，打包后走构建产物 dist/index.html。
+// 注意 renderer 构建输出目录是 dist（见 electron.vite.config.ts），不是 dist-electron/renderer；
+// 用 loadFile + query 而非拼 file:// 字符串，避免 Windows 反斜杠路径与查询参数解析问题。
+function loadRenderer(win: BrowserWindow, mode?: string): void {
   if (isDev) {
     const base = process.env.ELECTRON_RENDERER_URL || 'http://localhost:5173'
-    return mode ? `${base}?mode=${mode}` : base
+    win.loadURL(mode ? `${base}?mode=${mode}` : base)
+    return
   }
-  return `file://${path.join(__dirname, '../renderer/index.html')}${mode ? `?mode=${mode}` : ''}`
+  const indexPath = path.join(__dirname, '../../dist/index.html')
+  win.loadFile(indexPath, mode ? { query: { mode } } : undefined)
 }
 
 function createMainWindow(): BrowserWindow {
@@ -105,7 +110,7 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  win.loadURL(getRendererUrl())
+  loadRenderer(win)
 
   win.once('ready-to-show', () => {
     win.show()
@@ -137,7 +142,7 @@ function createVoiceWindow(): BrowserWindow {
     }
   })
 
-  win.loadURL(getRendererUrl('voice'))
+  loadRenderer(win, 'voice')
   return win
 }
 
@@ -170,7 +175,7 @@ function createRecordingPopup(): BrowserWindow {
     }
   })
 
-  win.loadURL(getRendererUrl('popup'))
+  loadRenderer(win, 'popup')
 
   win.webContents.on('console-message', (_event, level, message) => {
     console.log(`[popup console ${level}]`, message)

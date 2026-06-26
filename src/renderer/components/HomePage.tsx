@@ -44,7 +44,7 @@ export function HomePage() {
           自然说话，完美书写 — 在任何应用中
         </h1>
         <p className="text-[var(--text-secondary)]">
-          按住 {settings?.shortcut || 'Right Alt'} 开始和停止语音输入。
+          按住 {settings?.shortcut || 'Right Alt'} 开始语音输入，按 Enter 结束，按 Esc 取消。
         </p>
       </div>
 

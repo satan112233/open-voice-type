@@ -43,7 +43,7 @@
 | 🧠 | **大模型口语优化** | AI 自动去填充词、识别改口、口述标点转真符号、整理结构 |
 | 🌏 | **多语种识别** | SenseVoice 支持中 / 英 / 日 / 韩 / 粤语 |
 | 🌐 | **边说边翻译** | 按 `Ctrl+Alt+F` 说话，直接输出地道英文 / 日文 / 韩文等译文 |
-| ☁️ | **云端识别可选** | 一键切换科大讯飞，按需取舍速度与准确率 |
+| ☁️ | **云端识别可选** | 一键切换科大讯飞 / 阿里云百炼，按需取舍速度与准确率 |
 | 📚 | **个人词典** | 锁定人名、品牌、术语，识别纠错更懂你 |
 | 🕒 | **历史记录** | 本地保存、可搜索，并**标注每条用的识别引擎与优化模型** |
 | 🛡️ | **稳健不卡死** | 识别 / 优化失败或超时都会自动恢复，绝不卡在「处理中」 |
@@ -77,6 +77,7 @@
 | --- | --- | --- |
 | **本地 Sherpa-onnx**（默认） | [SenseVoice](https://github.com/k2-fsa/sherpa-onnx) 模型，中/英/日/韩/粤语，**完全离线**、隐私不出本机 | 见下方部署说明 |
 | **科大讯飞** | 中文场景云端识别 | AppID / APIKey / APISecret |
+| **阿里云百炼** | Qwen3-ASR-Flash 多语言云端识别，中英混说效果好 | DashScope API Key |
 
 ### 🌐 边说边翻译（Typeless 同款）
 
@@ -163,10 +164,10 @@ npm run dev
 
 ### ⚙️ 配置
 
-应用内「设置」清晰地分为两类：
+应用内「设置」清晰分为以下几类：
 
-2. **语音识别引擎** —— 选「本地 Sherpa-onnx」（默认，无需联网）或「科大讯飞」（填入 AppID / APIKey / APISecret，需在讯飞开放平台开通「中英识别大模型」服务）。可在设置中选择具体录音麦克风。
-3. **口语优化（可选）** —— 打开开关，选择 DeepSeek 或智谱 AI，填入对应 API Key。不填则不启用优化。
+1. **语音识别引擎** —— 选「本地 Sherpa-onnx」（默认，无需联网）、「科大讯飞」（填入 AppID / APIKey / APISecret）或「阿里云百炼」（填入 DashScope API Key）。可在设置中选择具体录音麦克风。
+2. **口语优化（可选）** —— 打开开关，选择 DeepSeek 或智谱 AI，填入对应 API Key。不填则不启用优化。
 3. **边说边翻译（可选）** —— 在「翻译」区设置目标语言（如 English），按 `Ctrl+Alt+F` 即可直接输出译文。翻译与口语优化共用同一套大模型 API Key。
 
 ### 🔉 本地 Sherpa-onnx 部署（使用本地识别时）
@@ -210,7 +211,7 @@ npm run dist       # 打包 Windows 安装程序
 
 ## 🏗️ 技术栈
 
-**Electron** · **electron-vite** · **React 19** · **TypeScript** · **Tailwind CSS** · **Zustand** · **electron-store** · **koffi**（Windows 原生 API，模拟粘贴）· **Sherpa-onnx**（离线语音识别）· **ws**（科大讯飞 WebSocket）· **DeepSeek / 智谱**（口语优化）
+**Electron** · **electron-vite** · **React 19** · **TypeScript** · **Tailwind CSS** · **Zustand** · **electron-store** · **koffi**（Windows 原生 API，模拟粘贴）· **Sherpa-onnx**（离线语音识别）· **ws**（科大讯飞 WebSocket）· **DashScope HTTP**（阿里云百炼）· **DeepSeek / 智谱**（口语优化）
 
 ---
 
@@ -220,7 +221,7 @@ npm run dist       # 打包 Windows 安装程序
 open-voice-type/
 ├── src/
 │   ├── main/            # Electron 主进程：窗口、托盘、全局热键、转录收尾
-│   │   ├── services/    #   sherpa-onnx / iflytek-asr / llm-optimizer
+│   │   ├── services/    #   sherpa-onnx / iflytek-asr / aliyun-asr / llm-optimizer
 │   │   └── utils/       #   系统粘贴、文本后处理
 │   ├── preload/         # Preload 脚本，暴露安全 IPC 桥接
 │   ├── renderer/        # React 渲染层（components / stores）

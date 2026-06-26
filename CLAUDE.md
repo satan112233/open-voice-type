@@ -13,7 +13,7 @@
 - **前端**：React + TypeScript + Tailwind CSS + Zustand
 - **存储**：electron-store（`settings` / `history` / `dictionary` 三个 key）
 - **本地 ASR**：Sherpa-onnx（调 `sherpa-onnx-offline.exe` 子进程）
-- **云 ASR**：科大讯飞「中英识别大模型」WebSocket（`ws` 库）
+- **云 ASR**：科大讯飞「中英识别大模型」WebSocket（`ws` 库）、阿里云百炼 DashScope 同步 HTTP
 - **口语优化**：DeepSeek / 智谱 AI，OpenAI 兼容 `chat/completions`
 
 ## 开发命令
@@ -60,7 +60,7 @@ npm run dist       # 打包 Windows 安装包
 ```
 热键 → main.toggleRecording → 显示 popup + 通知 voiceWindow 录音
   → MediaRecorder 录音 → 转 16kHz 单声道 WAV(base64)
-  → IPC 'transcribe-audio' → main 按 asrProvider 分发（sherpa / iflytek）
+  → IPC 'transcribe-audio' → main 按 asrProvider 分发（sherpa / iflytek / aliyun）
   → handleTranscriptionResult：口语优化(可选) → 存历史 → 粘贴/复制
 ```
 
@@ -77,7 +77,7 @@ npm run dist       # 打包 Windows 安装包
 
 ## 目录要点
 
-- `src/main/` — 主进程：`index.ts`（窗口/IPC/快捷键/转录收尾）、`services/`（`sherpa-onnx-service` / `iflytek-asr-service` / `llm-optimizer-service`）、`utils/`（`system-input` 模拟粘贴、`speech-optimizer` 规则式后处理-当前未接入主流程）
+- `src/main/` — 主进程：`index.ts`（窗口/IPC/快捷键/转录收尾）、`services/`（`sherpa-onnx-service` / `iflytek-asr-service` / `aliyun-asr-service` / `llm-optimizer-service`）、`utils/`（`system-input` 模拟粘贴、`speech-optimizer` 规则式后处理-当前未接入主流程）
 - `src/preload/index.ts` — contextBridge 暴露 `electronAPI`
 - `src/renderer/` — UI：页面（Home/History/Dictionary/Settings）+ 录音组件（VoiceRecordingPanel/RecordingPopup）+ Zustand stores
 - `src/shared/types/` — 前后端共享类型

@@ -1,6 +1,6 @@
 export type Theme = 'light' | 'dark' | 'system'
 export type OutputMode = 'paste' | 'copy' | 'confirm'
-export type AsrProvider = 'sherpa' | 'zhipu' | 'iflytek'
+export type AsrProvider = 'sherpa' | 'zhipu' | 'iflytek' | 'aliyun'
 
 // 边说边翻译支持的目标语言。label 用于设置页下拉显示，name 注入翻译 prompt。
 export const TRANSLATION_LANGUAGES = [
@@ -30,6 +30,8 @@ export interface Settings {
   iflytekAppId?: string
   iflytekApiKey?: string
   iflytekApiSecret?: string
+  // 阿里云百炼（DashScope）API Key（sk-xxx），用于 Qwen3-ASR-Flash 语音识别。
+  aliyunApiKey?: string
   llmProvider?: 'deepseek' | 'zhipu'
   llmApiKey?: string
   llmBaseUrl?: string

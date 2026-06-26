@@ -149,7 +149,8 @@ export function SettingsPage() {
               onChange={(v) => updateSettings({ asrProvider: v as Settings['asrProvider'] })}
               options={[
                 { value: 'sherpa', label: '本地 Sherpa-onnx' },
-                { value: 'iflytek', label: '科大讯飞' }
+                { value: 'iflytek', label: '科大讯飞' },
+                { value: 'aliyun', label: '阿里云百炼' }
               ]}
             />
           </div>
@@ -197,6 +198,27 @@ export function SettingsPage() {
 
               <p className="text-xs text-[var(--text-tertiary)]">
                 需在讯飞开放平台开通「中英识别大模型」服务并领取额度，三个参数缺一不可。
+              </p>
+            </>
+          )}
+
+          {settings.asrProvider === 'aliyun' && (
+            <>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                  阿里云百炼 API Key
+                </label>
+                <input
+                  type="password"
+                  value={settings.aliyunApiKey || ''}
+                  onChange={(e) => updateSettings({ aliyunApiKey: e.target.value })}
+                  placeholder="sk-xxxxxxxx"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+                />
+              </div>
+
+              <p className="text-xs text-[var(--text-tertiary)]">
+                需在阿里云百炼平台获取 API Key（sk- 开头）。默认使用 Qwen3-ASR-Flash 模型，识别中英混说效果好，新用户有 10 小时免费额度。
               </p>
             </>
           )}

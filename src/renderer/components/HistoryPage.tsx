@@ -5,6 +5,7 @@ import { TRANSLATION_LANGUAGES, type HistoryItem } from '@shared/types'
 const ASR_LABELS: Record<string, string> = {
   sherpa: '本地 Sherpa',
   iflytek: '科大讯飞',
+  aliyun: '阿里云百炼',
   zhipu: '智谱'
 }
 

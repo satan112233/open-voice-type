@@ -17,6 +17,7 @@ import { optimizeWithLlm, translateWithLlm, LLM_PROVIDERS } from './services/llm
 import { pasteText } from './utils/system-input'
 import { transcribeWithSherpa } from './services/sherpa-onnx-service'
 import { transcribeWithIflytek } from './services/iflytek-asr-service'
+import { transcribeWithAliyun } from './services/aliyun-asr-service'
 import {
   TRANSLATION_LANGUAGES,
   type DictionaryEntry,
@@ -387,6 +388,12 @@ async function transcribeAudio(base64Audio: string, settings: Settings): Promise
       appId: settings.iflytekAppId || '',
       apiKey: settings.iflytekApiKey || '',
       apiSecret: settings.iflytekApiSecret || ''
+    })
+  }
+
+  if (settings.asrProvider === 'aliyun') {
+    return transcribeWithAliyun(base64Audio, {
+      apiKey: settings.aliyunApiKey || ''
     })
   }
 

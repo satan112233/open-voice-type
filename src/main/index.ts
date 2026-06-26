@@ -25,7 +25,8 @@ import {
   type RecordingState,
   type Settings,
   type TranscriptionResult,
-  type TranscribeAudioRequest
+  type TranscribeAudioRequest,
+  type TranscribeStage
 } from '../shared/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -48,7 +49,6 @@ const DEFAULT_SETTINGS: Settings = {
   saveHistory: true,
   historyRetentionDays: 'forever',
   llmProvider: 'deepseek',
-  llmModel: 'deepseek-v4-flash',
   enableLlmOptimization: false,
   translationShortcut: DEFAULT_TRANSLATION_SHORTCUT,
   translationTargetLang: 'en',
@@ -234,6 +234,19 @@ function sendRecordingState(state: RecordingState): void {
   recordingPopup?.webContents.send('recording-state-change', state)
 }
 
+// 在转录阶段推送当前子阶段（recognizing/optimizing/translating），驱动浮层 Thinking 文案。
+// 仅在 main 接管 popup（transcribing）期间调用。
+function sendTranscribingStage(stage: TranscribeStage): void {
+  sendRecordingState({
+    isRecording: false,
+    isTranscribing: true,
+    duration: recordingDuration,
+    audioLevel: 0,
+    canCancel: false,
+    stage
+  })
+}
+
 // 统一收尾：清看门狗、复位阶段与时长、隐藏 popup、推空闲状态。幂等，可重复调用。
 function finishTranscribing(): void {
   if (transcribeWatchdog) {
@@ -329,8 +342,12 @@ async function startGlobalRecording(mode: 'input' | 'translate'): Promise<void> 
   registerRecordingShortcuts(store.get('settings'))
 }
 
-function stopGlobalRecording(): void {
-  console.log('[main] stopGlobalRecording called')
+// 进入转录阶段（recording → transcribing）：推进 globalPhase、停录音计时、装看门狗、
+// 推 Thinking 状态。主进程主动停止(stopGlobalRecording)与 renderer 60s 自停
+// (recording-auto-stopped) 共用，确保任一停止路径都会装上看门狗、让 main 接管 popup。
+// 带 recording 守卫，幂等可重复调用。
+function beginTranscribing(): void {
+  if (globalPhase !== 'recording') return
   globalPhase = 'transcribing'
 
   if (transcribeWatchdog) clearTimeout(transcribeWatchdog)
@@ -346,14 +363,14 @@ function stopGlobalRecording(): void {
     recordingTimer = null
   }
 
-  sendRecordingState({
-    isRecording: false,
-    isTranscribing: true,
-    duration: recordingDuration,
-    audioLevel: 0,
-    canCancel: false
-  })
+  // 进入转录先显示「识别中」；ASR 完成后由 handleTranscriptionResult 切到优化/翻译。
+  sendTranscribingStage('recognizing')
+}
 
+function stopGlobalRecording(): void {
+  console.log('[main] stopGlobalRecording called')
+  if (globalPhase !== 'recording') return
+  beginTranscribing()
   voiceWindow?.webContents.send('stop-global-recording')
 }
 
@@ -425,6 +442,7 @@ async function handleTranscriptionResult(text: string): Promise<void> {
       const targetLang = settings.translationTargetLang || 'en'
       const langName = TRANSLATION_LANGUAGES.find((l) => l.code === targetLang)?.name ?? '英语'
       try {
+        sendTranscribingStage('translating')
         const { baseUrl, model } = LLM_PROVIDERS[provider]
         outputText = await translateWithLlm(text, { apiKey, baseUrl, model }, langName, dictionary)
         usedLlmProvider = provider
@@ -435,6 +453,7 @@ async function handleTranscriptionResult(text: string): Promise<void> {
       }
     } else if (settings.enableLlmOptimization && apiKey?.trim()) {
       try {
+        sendTranscribingStage('optimizing')
         const { baseUrl, model } = LLM_PROVIDERS[provider]
         outputText = await optimizeWithLlm(text, { apiKey, baseUrl, model }, dictionary)
         usedLlmProvider = provider
@@ -553,6 +572,22 @@ function unregisterRecordingShortcuts(): void {
   globalShortcut.unregister(CANCEL_RECORDING_ACCELERATOR)
 }
 
+// 按「历史记录保留时长」清理：删除 createdAt 早于 retention 天的记录并落盘；
+// 'forever' 不清理。返回清理后的列表，供 get-history 直接复用。
+function pruneHistoryByRetention(): HistoryItem[] {
+  const { historyRetentionDays } = store.get('settings')
+  const history = store.get('history')
+  if (historyRetentionDays === 'forever' || typeof historyRetentionDays !== 'number') {
+    return history
+  }
+  const cutoff = Date.now() - historyRetentionDays * 24 * 60 * 60 * 1000
+  const kept = history.filter((item) => item.createdAt >= cutoff)
+  if (kept.length !== history.length) {
+    store.set('history', kept)
+  }
+  return kept
+}
+
 function setupIpc(): void {
   ipcMain.handle('get-settings', () => store.get('settings'))
   ipcMain.handle('set-settings', (_event, settings: Partial<Settings>) => {
@@ -566,9 +601,17 @@ function setupIpc(): void {
     if (shortcutChanged || translationShortcutChanged) {
       registerGlobalShortcuts(next)
     }
+
+    // 缩短保留时长后立即清理一次，避免旧记录残留到下次 get-history。
+    if (
+      settings.historyRetentionDays !== undefined &&
+      settings.historyRetentionDays !== current.historyRetentionDays
+    ) {
+      pruneHistoryByRetention()
+    }
   })
 
-  ipcMain.handle('get-history', () => store.get('history'))
+  ipcMain.handle('get-history', () => pruneHistoryByRetention())
   ipcMain.handle('add-history', (_event, item: Omit<HistoryItem, 'id'>) => {
     const historyItem: HistoryItem = { ...item, id: crypto.randomUUID() }
     const history = store.get('history')
@@ -624,6 +667,15 @@ function setupIpc(): void {
     handleTranscriptionResult(text)
   })
 
+  // renderer 触达 60s 录音上限自停时通知 main：voiceWindow 已自行停止录音，
+  // 但主进程未经过 stopGlobalRecording，故 globalPhase 仍卡在 'recording'。
+  // 这里补做状态推进（装看门狗 + 接管 popup），避免结果被 handleTranscriptionResult
+  // 的 'transcribing' 守卫丢弃、以及 Thinking 失去看门狗保护而永久卡死。
+  ipcMain.on('recording-auto-stopped', () => {
+    console.log('[main] received recording-auto-stopped (renderer hit max duration)')
+    beginTranscribing()
+  })
+
   // 录音/识别在 voiceWindow 侧失败或无有效结果时通知 main，立即收尾，
   // 避免 Thinking 干等到看门狗超时。
   ipcMain.on('global-voice-failed', (_event, reason?: string) => {
@@ -647,6 +699,8 @@ app.whenReady().then(() => {
 
   setupIpc()
   registerGlobalShortcuts(settings)
+  // 启动时清理一次过期历史（处理上次关闭后才到期的记录）。
+  pruneHistoryByRetention()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -19,7 +19,6 @@ if (!window.electronAPI) {
       saveHistory: true,
       historyRetentionDays: 'forever',
       llmProvider: 'deepseek',
-      llmModel: 'deepseek-v4-flash',
       enableLlmOptimization: false
     }),
     setSettings: async () => undefined,
@@ -37,6 +36,7 @@ if (!window.electronAPI) {
     cancelGlobalRecording: async () => undefined,
     sendRecordingState: () => undefined,
     sendGlobalVoiceResult: () => undefined,
+    notifyRecordingAutoStopped: () => undefined,
     minimizeWindow: async () => undefined,
     closeWindow: async () => undefined
   } as unknown as ElectronAPI

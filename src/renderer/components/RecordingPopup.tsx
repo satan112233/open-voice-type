@@ -58,7 +58,7 @@ export function RecordingPopup() {
           }}
         >
           {state.isTranscribing ? (
-            <ThinkingText />
+            <ThinkingText stage={state.stage} />
           ) : (
             <>
               {/* Cancel — outlined circle */}
@@ -116,8 +116,16 @@ export function RecordingPopup() {
   )
 }
 
-function ThinkingText() {
-  const letters = 'Thinking'.split('')
+// 各转录子阶段对应的浮层文案（沿用英文风格）；缺省回退通用 Thinking。
+const STAGE_LABELS: Record<NonNullable<RecordingState['stage']>, string> = {
+  recognizing: 'Transcribing',
+  optimizing: 'Polishing',
+  translating: 'Translating'
+}
+
+function ThinkingText({ stage }: { stage?: RecordingState['stage'] }) {
+  const label = (stage && STAGE_LABELS[stage]) || 'Thinking'
+  const letters = label.split('')
   return (
     <div
       style={{
@@ -131,7 +139,7 @@ function ThinkingText() {
     >
       {letters.map((ch, i) => (
         <span
-          key={i}
+          key={`${label}-${i}`}
           style={{
             display: 'inline-block',
             color: 'rgba(255,255,255,0.95)',

@@ -1,6 +1,6 @@
 export type Theme = 'light' | 'dark' | 'system'
-export type OutputMode = 'paste' | 'copy' | 'confirm'
-export type AsrProvider = 'sherpa' | 'zhipu' | 'iflytek' | 'aliyun'
+export type OutputMode = 'paste' | 'copy'
+export type AsrProvider = 'sherpa' | 'iflytek' | 'aliyun'
 
 // 边说边翻译支持的目标语言。label 用于设置页下拉显示，name 注入翻译 prompt。
 export const TRANSLATION_LANGUAGES = [
@@ -33,9 +33,6 @@ export interface Settings {
   // 阿里云百炼（DashScope）API Key（sk-xxx），用于 Qwen3-ASR-Flash 语音识别。
   aliyunApiKey?: string
   llmProvider?: 'deepseek' | 'zhipu'
-  llmApiKey?: string
-  llmBaseUrl?: string
-  llmModel?: string
   enableLlmOptimization: boolean
   // 边说边翻译：独立全局热键（默认 Ctrl+Alt+F）触发，输出目标语言译文。
   translationShortcut?: string
@@ -63,12 +60,17 @@ export interface DictionaryEntry {
   autoLearned?: boolean
 }
 
+// 转录子阶段，用于在录音浮层 Thinking 区分进度：识别中 / 口语优化中 / 翻译中。
+export type TranscribeStage = 'recognizing' | 'optimizing' | 'translating'
+
 export interface RecordingState {
   isRecording: boolean
   isTranscribing: boolean
   duration: number
   audioLevel?: number
   canCancel: boolean
+  // 仅 isTranscribing 时有意义；由主进程随真实处理阶段推进，缺省回退为通用 Thinking。
+  stage?: TranscribeStage
 }
 
 export interface TranscribeAudioRequest {
@@ -116,6 +118,8 @@ export interface ElectronAPI {
   confirmGlobalRecording: () => Promise<void>
   sendGlobalVoiceResult: (text: string) => void
   notifyTranscriptionFailed: (reason?: string) => void
+  // renderer 触达 60s 录音上限自停时通知 main，让其推进状态机并装上转录看门狗。
+  notifyRecordingAutoStopped: () => void
 
   // Window controls
   minimizeWindow: () => Promise<void>

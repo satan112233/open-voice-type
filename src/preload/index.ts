@@ -42,6 +42,7 @@ const api: ElectronAPI = {
   sendRecordingState: (state) => ipcRenderer.send('recording-state', state),
   sendGlobalVoiceResult: (text) => ipcRenderer.send('global-voice-result', text),
   notifyTranscriptionFailed: (reason) => ipcRenderer.send('global-voice-failed', reason),
+  notifyRecordingAutoStopped: () => ipcRenderer.send('recording-auto-stopped'),
 
   cancelGlobalRecording: () => ipcRenderer.invoke('cancel-global-recording'),
   confirmGlobalRecording: () => ipcRenderer.invoke('confirm-global-recording'),

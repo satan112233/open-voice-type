@@ -266,6 +266,9 @@ export const useRecordingStore = create<RecordingStoreState>((set) => ({
 
       maxDurationTimerRef = setTimeout(() => {
         if (mediaRecorderRef?.state === 'recording') {
+          // 先通知主进程 renderer 触达 60s 上限自停，让其推进状态机并装上看门狗，
+          // 再停录音。否则主进程 globalPhase 会卡在 'recording'，结果被丢弃且 Thinking 卡死。
+          window.electronAPI.notifyRecordingAutoStopped?.()
           mediaRecorderRef.stop()
         }
       }, MAX_RECORDING_SECONDS * 1000)

@@ -134,8 +134,7 @@ export function SettingsPage() {
               onChange={(v) => updateSettings({ outputMode: v as Settings['outputMode'] })}
               options={[
                 { value: 'paste', label: '直接粘贴到当前输入框' },
-                { value: 'copy', label: '仅复制到剪贴板' },
-                { value: 'confirm', label: '弹窗确认后再粘贴' }
+                { value: 'copy', label: '仅复制到剪贴板' }
               ]}
             />
           </div>

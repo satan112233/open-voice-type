@@ -27,12 +27,16 @@ export interface Settings {
   sherpaModelPath?: string
   zhipuApiKey?: string
   deepseekApiKey?: string
+  // 本地模型配置（Ollama / llama.cpp / vLLM 等 OpenAI 兼容服务）。
+  localBaseUrl?: string
+  localModel?: string
+  localApiKey?: string
   iflytekAppId?: string
   iflytekApiKey?: string
   iflytekApiSecret?: string
   // 阿里云百炼（DashScope）API Key（sk-xxx），用于 Qwen3-ASR-Flash 语音识别。
   aliyunApiKey?: string
-  llmProvider?: 'deepseek' | 'zhipu'
+  llmProvider?: 'deepseek' | 'zhipu' | 'local'
   enableLlmOptimization: boolean
   // 边说边翻译：独立全局热键（默认 Ctrl+Alt+F）触发，输出目标语言译文。
   translationShortcut?: string
@@ -48,7 +52,9 @@ export interface HistoryItem {
   duration: number
   createdAt: number
   asrProvider?: AsrProvider
-  llmProvider?: 'deepseek' | 'zhipu'
+  llmProvider?: 'deepseek' | 'zhipu' | 'local'
+  // 实际使用的大模型名（本地模型时记录具体模型，如 qwen2.5:14b）。
+  llmModel?: string
   // 该条为「边说边翻译」生成时记录的目标语言；普通语音输入则为 undefined。
   translationTargetLang?: TranslationLangCode
 }

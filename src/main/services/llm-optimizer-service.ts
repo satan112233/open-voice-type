@@ -1,11 +1,12 @@
 import type { DictionaryEntry } from '../../shared/types'
 
-export type LlmProvider = 'deepseek' | 'zhipu'
+export type LlmProvider = 'deepseek' | 'zhipu' | 'local'
 
-// DeepSeek / 智谱均为 OpenAI 兼容接口，差异仅在 baseUrl 与默认模型。
+// DeepSeek / 智谱 / 本地模型均为 OpenAI 兼容接口，差异仅在 baseUrl 与默认模型。
 export const LLM_PROVIDERS: Record<LlmProvider, { baseUrl: string; model: string }> = {
   deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
-  zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' }
+  zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+  local: { baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:14b' }
 }
 
 const SYSTEM_PROMPT = `你是一位智能的语音输入助手。请对以下语音识别得到的口语文本进行整理，让结果自然、清晰、流畅，读起来像用户精心表达的内容一样。

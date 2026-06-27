@@ -167,7 +167,7 @@ function createRecordingPopup(): BrowserWindow {
   const winWidth = 240
   const winHeight = 72
   const x = Math.round(screenX + (screenWidth - winWidth) / 2)
-  const y = Math.round(screenY + screenHeight - 150)
+  const y = Math.round(screenY + screenHeight - 80)
 
   console.log(`[popup] creating popup at ${x},${y} on display ${screenX},${screenY} ${screenWidth}x${screenHeight}`)
 
@@ -430,12 +430,22 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     let rawText = text
     let outputText = text
     // 实际成功用过的大模型供应商（口语优化或翻译，用于历史标注）；未调用或失败回退时保持 undefined。
-    let usedLlmProvider: 'deepseek' | 'zhipu' | undefined
+    let usedLlmProvider: 'deepseek' | 'zhipu' | 'local' | undefined
+    // 实际成功用过的大模型名（本地模型时记录具体模型名）。
+    let usedLlmModel: string | undefined
     // 实际成功用过的翻译目标语言（仅翻译模式成功时记录）。
     let usedTargetLang: Settings['translationTargetLang']
 
     const provider = settings.llmProvider || 'deepseek'
-    const apiKey = provider === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey
+    const defaultLlmConfig = LLM_PROVIDERS[provider]
+    const apiKey =
+      provider === 'local'
+        ? (settings.localApiKey || 'ollama')
+        : provider === 'zhipu'
+          ? settings.zhipuApiKey
+          : settings.deepseekApiKey
+    const baseUrl = provider === 'local' ? (settings.localBaseUrl || defaultLlmConfig.baseUrl) : defaultLlmConfig.baseUrl
+    const model = provider === 'local' ? (settings.localModel || defaultLlmConfig.model) : defaultLlmConfig.model
 
     if (currentMode === 'translate' && apiKey?.trim()) {
       // 边说边翻译：单次调用把口述意图理解并翻译成目标语言，只输出译文。
@@ -443,9 +453,9 @@ async function handleTranscriptionResult(text: string): Promise<void> {
       const langName = TRANSLATION_LANGUAGES.find((l) => l.code === targetLang)?.name ?? '英语'
       try {
         sendTranscribingStage('translating')
-        const { baseUrl, model } = LLM_PROVIDERS[provider]
         outputText = await translateWithLlm(text, { apiKey, baseUrl, model }, langName, dictionary)
         usedLlmProvider = provider
+        usedLlmModel = model
         usedTargetLang = targetLang
       } catch (error) {
         console.error('[main] translation failed, falling back to raw text:', error)
@@ -454,9 +464,9 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     } else if (settings.enableLlmOptimization && apiKey?.trim()) {
       try {
         sendTranscribingStage('optimizing')
-        const { baseUrl, model } = LLM_PROVIDERS[provider]
         outputText = await optimizeWithLlm(text, { apiKey, baseUrl, model }, dictionary)
         usedLlmProvider = provider
+        usedLlmModel = model
       } catch (error) {
         console.error('[main] LLM optimization failed, falling back to raw text:', error)
         outputText = text
@@ -478,6 +488,7 @@ async function handleTranscriptionResult(text: string): Promise<void> {
         createdAt: Date.now(),
         asrProvider: settings.asrProvider,
         llmProvider: usedLlmProvider,
+        llmModel: usedLlmModel,
         translationTargetLang: usedTargetLang
       }
       const history = store.get('history')

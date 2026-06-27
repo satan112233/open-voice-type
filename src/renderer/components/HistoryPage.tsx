@@ -10,7 +10,8 @@ const ASR_LABELS: Record<string, string> = {
 
 const LLM_LABELS: Record<string, string> = {
   deepseek: 'DeepSeek',
-  zhipu: '智谱 AI'
+  zhipu: '智谱 AI',
+  local: '本地模型'
 }
 
 const LANG_LABELS: Record<string, string> = Object.fromEntries(
@@ -121,6 +122,7 @@ export function HistoryPage() {
                     <span className="flex items-center gap-1 rounded-md bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[var(--text-secondary)]">
                       <Sparkles className="h-3 w-3" />
                       {LLM_LABELS[item.llmProvider] ?? item.llmProvider}
+                      {item.llmModel && item.llmProvider === 'local' && ` · ${item.llmModel}`}
                     </span>
                   )}
                   {item.translationTargetLang && (

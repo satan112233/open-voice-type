@@ -8,6 +8,8 @@ export function SettingsPage() {
   const [localShortcut, setLocalShortcut] = useState('')
   const [localTranslationShortcut, setLocalTranslationShortcut] = useState('')
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
+  const [testMessage, setTestMessage] = useState('')
 
   useEffect(() => {
     if (settings) {
@@ -71,6 +73,41 @@ export function SettingsPage() {
     if (shortcut) {
       setLocalTranslationShortcut(shortcut)
       updateSettings({ translationShortcut: shortcut })
+    }
+  }
+
+  const handleTestLocalLlm = async () => {
+    setTestStatus('testing')
+    setTestMessage('')
+
+    const baseUrl = (settings.localBaseUrl || 'http://localhost:11434/v1').replace(/\/$/, '')
+    const model = settings.localModel || 'qwen2.5:14b'
+    const apiKey = settings.localApiKey || 'ollama'
+
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 5
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error?.message || `HTTP ${response.status}`)
+      }
+
+      setTestStatus('success')
+      setTestMessage(`连接成功，模型 ${model} 可正常响应`)
+    } catch (error) {
+      setTestStatus('error')
+      setTestMessage(error instanceof Error ? error.message : '连接失败')
     }
   }
 
@@ -304,32 +341,99 @@ export function SettingsPage() {
               onChange={(v) => updateSettings({ llmProvider: v as Settings['llmProvider'] })}
               options={[
                 { value: 'deepseek', label: 'DeepSeek' },
-                { value: 'zhipu', label: '智谱 AI' }
+                { value: 'zhipu', label: '智谱 AI' },
+                { value: 'local', label: '本地模型（OpenAI 兼容）' }
               ]}
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-              {llmProvider === 'zhipu' ? '智谱 AI' : 'DeepSeek'} API Key
-            </label>
-            <input
-              type="password"
-              value={(llmProvider === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey) || ''}
-              onChange={(e) =>
-                updateSettings(
-                  llmProvider === 'zhipu'
-                    ? { zhipuApiKey: e.target.value }
-                    : { deepseekApiKey: e.target.value }
-                )
-              }
-              placeholder="填写所选大模型的 API Key"
-              className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
-            />
-          </div>
+          {llmProvider === 'local' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                  本地服务地址（baseUrl）
+                </label>
+                <input
+                  type="text"
+                  value={settings.localBaseUrl || ''}
+                  onChange={(e) => updateSettings({ localBaseUrl: e.target.value })}
+                  placeholder="http://localhost:11434/v1"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                  模型名
+                </label>
+                <input
+                  type="text"
+                  value={settings.localModel || ''}
+                  onChange={(e) => updateSettings({ localModel: e.target.value })}
+                  placeholder="qwen2.5:14b"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                  API Key（可选）
+                </label>
+                <input
+                  type="password"
+                  value={settings.localApiKey || ''}
+                  onChange={(e) => updateSettings({ localApiKey: e.target.value })}
+                  placeholder="Ollama 可留空，llama.cpp 等按需填写"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleTestLocalLlm}
+                  disabled={testStatus === 'testing'}
+                  className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-tertiary)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testStatus === 'testing' ? '测试中...' : '测试连接'}
+                </button>
+                {testStatus !== 'idle' && testStatus !== 'testing' && (
+                  <span
+                    className={`text-xs ${
+                      testStatus === 'success' ? 'text-green-500' : 'text-red-500'
+                    }`}
+                  >
+                    {testMessage}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                {llmProvider === 'zhipu' ? '智谱 AI' : 'DeepSeek'} API Key
+              </label>
+              <input
+                type="password"
+                value={(llmProvider === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey) || ''}
+                onChange={(e) =>
+                  updateSettings(
+                    llmProvider === 'zhipu'
+                      ? { zhipuApiKey: e.target.value }
+                      : { deepseekApiKey: e.target.value }
+                  )
+                }
+                placeholder="填写所选大模型的 API Key"
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+              />
+            </div>
+          )}
 
           <p className="text-xs text-[var(--text-tertiary)]">
-            DeepSeek、智谱 AI 均兼容 OpenAI 接口。口语优化与翻译共用此配置；未填 Key 时口语优化不生效、翻译会回退为输出原文。
+            DeepSeek、智谱 AI、本地模型均兼容 OpenAI 接口。口语优化与翻译共用此配置；未填 Key 时口语优化不生效、翻译会回退为输出原文。
+          </p>
+          <p className="text-xs text-[var(--text-tertiary)]">
+            本地模型示例：安装 Ollama 后运行 <code className="rounded bg-[var(--bg-tertiary)] px-1 py-0.5">ollama pull qwen2.5:14b</code>，即可选择「本地模型」并默认调用 <code className="rounded bg-[var(--bg-tertiary)] px-1 py-0.5">http://localhost:11434/v1</code>。
           </p>
         </div>
       </SettingSection>

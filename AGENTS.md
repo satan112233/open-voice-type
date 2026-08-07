@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 本文件为在此仓库工作的 AI/开发者提供项目指南。
 
@@ -14,7 +14,7 @@
 - **存储**：electron-store（`settings` / `history` / `dictionary` 三个 key）
 - **本地 ASR**：Sherpa-onnx（调 `sherpa-onnx-offline.exe` 子进程）
 - **云 ASR**：科大讯飞「中英识别大模型」WebSocket（`ws` 库）、阿里云百炼 DashScope 同步 HTTP
-- **口语优化**：DeepSeek / 智谱 AI / Kimi（`api.kimi.com/coding/v1`，`kimi-for-coding-highspeed`，该模型只允许 temperature=1）/ 本地模型（Ollama 等），均为 OpenAI 兼容 `chat/completions`
+- **口语优化**：DeepSeek / 智谱 AI，OpenAI 兼容 `chat/completions`
 
 ## 开发命令
 
@@ -85,7 +85,7 @@ npm run dist       # 打包 Windows 安装包
 ## 关键约定
 
 - **参考姊妹项目**：`D:\workspace\my-work\translation-assistant` 是同源项目，讯飞、LLM 口语优化等均从它移植；做类似功能优先参考它。
-- **设置数据模型**：口语优化以 `LLM_PROVIDERS` 预设 + `llmProvider`/按供应商的 key（`deepseekApiKey`/`zhipuApiKey`/`kimiApiKey`，本地模型为 `localBaseUrl`/`localModel`/`localApiKey`）为准（旧版的 `llmModel/llmApiKey/llmBaseUrl/openai*` 弃用字段已于 0.1.x 移除）。DeepSeek / Kimi 支持在设置页选模型（`deepseekModel` / `kimiModel`，留空用预设默认；候选项见 `src/shared/types` 的 `DEEPSEEK_MODELS` / `KIMI_MODELS` 常量，均已实测可调用）。`audioInputDeviceId` 用于指定录音麦克风，空字符串表示系统默认。ASR 引擎仅 `sherpa`/`iflytek`/`aliyun` 三种；输出模式仅 `paste`/`copy`。`historyRetentionDays` 由主进程 `pruneHistoryByRetention()` 在启动、`get-history`、保留时长变更时执行清理。
+- **设置数据模型**：口语优化以 `LLM_PROVIDERS` 预设 + `llmProvider`/按供应商的 key（`deepseekApiKey`/`zhipuApiKey`）为准（旧版的 `llmModel/llmApiKey/llmBaseUrl/openai*` 弃用字段已于 0.1.x 移除）。`audioInputDeviceId` 用于指定录音麦克风，空字符串表示系统默认。ASR 引擎仅 `sherpa`/`iflytek`/`aliyun` 三种；输出模式仅 `paste`/`copy`。`historyRetentionDays` 由主进程 `pruneHistoryByRetention()` 在启动、`get-history`、保留时长变更时执行清理。
 - **口语优化取舍**：只用大模型，无基础规则档；个人词典纠正仅在口语优化开启时通过 prompt 注入生效。
 - **历史记录模型标注**：`HistoryItem.asrProvider` / `llmProvider` / `translationTargetLang` 存的是**生成时的模型快照**（在 `handleTranscriptionResult` 写入，非读当前设置），否则改设置会让旧记录标签失真；`llmProvider` 在口语优化或翻译成功时记录，`translationTargetLang` 仅在翻译成功时记录；HistoryPage 按字段存在显示标签、缺失则不显示。
 - UI 改动由用户自行验证，不必自行开浏览器截图。

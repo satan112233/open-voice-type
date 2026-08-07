@@ -10,9 +10,10 @@
   "scripts": {
     "dev": "electron-vite dev -- --remote-debugging-port=9223",
     "build": "npm run typecheck && electron-vite build",
+    "build:native": "cd native/UiaHelper && dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false && xcopy /Y /I \"bin\\Release\\net7.0-windows\\win-x64\\publish\\UiaHelper.exe\" \"..\\build\\\" && xcopy /Y /I \"bin\\Release\\net7.0-windows\\win-x64\\publish\\UiaHelper.pdb\" \"..\\build\\\"",
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build:native && npm run build && electron-builder",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
   },
   "build": {
@@ -38,6 +39,14 @@
       {
         "from": "build/icon.ico",
         "to": "build/icon.ico"
+      },
+      {
+        "from": "native/build",
+        "to": "build",
+        "filter": [
+          "UiaHelper.exe",
+          "UiaHelper.pdb"
+        ]
       }
     ]
   },

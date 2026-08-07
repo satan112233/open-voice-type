@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, Wand2, Search, X, Edit2, Check } from 'lucide-react'
 import type { DictionaryEntry } from '@shared/types'
+import { ConfirmDialog } from './ConfirmDialog'
 
 export function DictionaryPage() {
   const [entries, setEntries] = useState<DictionaryEntry[]>([])
@@ -11,6 +12,7 @@ export function DictionaryPage() {
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editWord, setEditWord] = useState('')
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const loadEntries = async () => {
     const items = await window.electronAPI.getDictionary()
@@ -62,6 +64,22 @@ export function DictionaryPage() {
     await loadEntries()
   }
 
+  const handleClearAll = () => {
+    setShowClearConfirm(true)
+  }
+
+  const confirmClearAll = async () => {
+    try {
+      await window.electronAPI.clearDictionary()
+      await loadEntries()
+    } catch (error) {
+      console.error('[dictionary] clear failed:', error)
+      alert('清空词典失败：' + (error instanceof Error ? error.message : String(error)))
+    } finally {
+      setShowClearConfirm(false)
+    }
+  }
+
   const filteredEntries = entries.filter((entry) => {
     const matchesFilter =
       filter === 'all' ||
@@ -75,13 +93,24 @@ export function DictionaryPage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-[var(--text-primary)]">词典</h1>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-[var(--primary-color)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
-        >
-          <Plus className="h-4 w-4" />
-          新词
-        </button>
+        <div className="flex items-center gap-2">
+          {entries.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+              清空
+            </button>
+          )}
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--primary-color)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
+          >
+            <Plus className="h-4 w-4" />
+            新词
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -239,6 +268,17 @@ export function DictionaryPage() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        title="清空词典"
+        message="确定要清空所有词典条目吗？此操作不可恢复。"
+        confirmLabel="清空"
+        cancelLabel="取消"
+        variant="danger"
+        onConfirm={confirmClearAll}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   )
 }

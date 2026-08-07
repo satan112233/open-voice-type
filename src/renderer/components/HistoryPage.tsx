@@ -11,6 +11,7 @@ const ASR_LABELS: Record<string, string> = {
 const LLM_LABELS: Record<string, string> = {
   deepseek: 'DeepSeek',
   zhipu: '智谱 AI',
+  kimi: 'Kimi',
   local: '本地模型'
 }
 

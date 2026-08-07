@@ -13,8 +13,9 @@ import {
 import path from 'path'
 import { fileURLToPath } from 'url'
 import Store from 'electron-store'
-import { optimizeWithLlm, translateWithLlm, LLM_PROVIDERS } from './services/llm-optimizer-service'
+import { optimizeWithLlm, translateWithLlm, extractCorrectionsWithLlm, LLM_PROVIDERS } from './services/llm-optimizer-service'
 import { pasteText } from './utils/system-input'
+import { readFocusedInputValue } from './utils/uia-helper'
 import { transcribeWithSherpa } from './services/sherpa-onnx-service'
 import { transcribeWithIflytek } from './services/iflytek-asr-service'
 import { transcribeWithAliyun } from './services/aliyun-asr-service'
@@ -430,7 +431,7 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     let rawText = text
     let outputText = text
     // 实际成功用过的大模型供应商（口语优化或翻译，用于历史标注）；未调用或失败回退时保持 undefined。
-    let usedLlmProvider: 'deepseek' | 'zhipu' | 'local' | undefined
+    let usedLlmProvider: 'deepseek' | 'zhipu' | 'kimi' | 'local' | undefined
     // 实际成功用过的大模型名（本地模型时记录具体模型名）。
     let usedLlmModel: string | undefined
     // 实际成功用过的翻译目标语言（仅翻译模式成功时记录）。
@@ -443,9 +444,19 @@ async function handleTranscriptionResult(text: string): Promise<void> {
         ? (settings.localApiKey || 'ollama')
         : provider === 'zhipu'
           ? settings.zhipuApiKey
-          : settings.deepseekApiKey
+          : provider === 'kimi'
+            ? settings.kimiApiKey
+            : settings.deepseekApiKey
     const baseUrl = provider === 'local' ? (settings.localBaseUrl || defaultLlmConfig.baseUrl) : defaultLlmConfig.baseUrl
-    const model = provider === 'local' ? (settings.localModel || defaultLlmConfig.model) : defaultLlmConfig.model
+    const model =
+      provider === 'local'
+        ? (settings.localModel || defaultLlmConfig.model)
+        : provider === 'kimi'
+          ? (settings.kimiModel || defaultLlmConfig.model)
+          : provider === 'deepseek'
+            ? (settings.deepseekModel || defaultLlmConfig.model)
+            : defaultLlmConfig.model
+    const temperature = provider === 'local' ? undefined : defaultLlmConfig.temperature
 
     if (currentMode === 'translate' && apiKey?.trim()) {
       // 边说边翻译：单次调用把口述意图理解并翻译成目标语言，只输出译文。
@@ -453,7 +464,7 @@ async function handleTranscriptionResult(text: string): Promise<void> {
       const langName = TRANSLATION_LANGUAGES.find((l) => l.code === targetLang)?.name ?? '英语'
       try {
         sendTranscribingStage('translating')
-        outputText = await translateWithLlm(text, { apiKey, baseUrl, model }, langName, dictionary)
+        outputText = await translateWithLlm(text, { apiKey, baseUrl, model, temperature }, langName, dictionary)
         usedLlmProvider = provider
         usedLlmModel = model
         usedTargetLang = targetLang
@@ -464,7 +475,7 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     } else if (settings.enableLlmOptimization && apiKey?.trim()) {
       try {
         sendTranscribingStage('optimizing')
-        outputText = await optimizeWithLlm(text, { apiKey, baseUrl, model }, dictionary)
+        outputText = await optimizeWithLlm(text, { apiKey, baseUrl, model, temperature }, dictionary)
         usedLlmProvider = provider
         usedLlmModel = model
       } catch (error) {
@@ -501,8 +512,97 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     finishTranscribing()
 
     if (settings.outputMode === 'paste') {
+      console.log('[main] pasting text, starting auto-learn polling')
       await pasteText(outputText)
+
+      // Typeless 式自动学习：粘贴后轮询焦点输入框，等用户停止编辑或失焦后再学习。
+      const pastedValue = outputText.trim()
+      let pastedRuntimeId: string | null = null
+      let lastValue = ''
+      let lastValueChangeAt = Date.now()
+      let stableValue: string | null = null
+      let maxAttempts = 50 // 最多 50 * 300ms = 15s，兜底
+
+      // 复用当前大模型配置给纠正提取
+      const provider = settings.llmProvider || 'deepseek'
+      const defaultLlmConfig = LLM_PROVIDERS[provider]
+      const llmConfig = {
+        apiKey:
+          provider === 'local'
+            ? (settings.localApiKey || 'ollama')
+            : provider === 'zhipu'
+              ? (settings.zhipuApiKey || '')
+              : provider === 'kimi'
+                ? (settings.kimiApiKey || '')
+                : (settings.deepseekApiKey || ''),
+        baseUrl: provider === 'local' ? (settings.localBaseUrl || defaultLlmConfig.baseUrl) : defaultLlmConfig.baseUrl,
+        model:
+          provider === 'local'
+            ? (settings.localModel || defaultLlmConfig.model)
+            : provider === 'kimi'
+              ? (settings.kimiModel || defaultLlmConfig.model)
+              : provider === 'deepseek'
+                ? (settings.deepseekModel || defaultLlmConfig.model)
+                : defaultLlmConfig.model,
+        temperature: provider === 'local' ? undefined : defaultLlmConfig.temperature
+      }
+
+      try {
+        const focusInfoAtPaste = await readFocusedInputValue()
+        if (!focusInfoAtPaste?.runtimeId) {
+          console.log('[main] auto-learn: no focus/runtimeId at paste time')
+        } else {
+          pastedRuntimeId = focusInfoAtPaste.runtimeId
+          lastValue = focusInfoAtPaste.value ?? ''
+          console.log('[main] auto-learn: pasted runtimeId=', pastedRuntimeId)
+        }
+      } catch (error) {
+        console.warn('[main] auto-learn: failed to read focus at paste time:', error)
+      }
+
+      if (!pastedRuntimeId) {
+        console.log('[main] auto-learn: cannot identify pasted element, skip')
+      } else {
+        const intervalId = setInterval(async () => {
+          try {
+            maxAttempts--
+            const focusInfo = await readFocusedInputValue()
+            const currentRuntimeId = focusInfo?.runtimeId ?? null
+
+            // 焦点离开原输入框：用最后稳定的值做 diff
+            if (currentRuntimeId !== pastedRuntimeId) {
+              clearInterval(intervalId)
+              console.log('[main] auto-learn: focus left, use stable value')
+              await finalizeAutoLearn(pastedValue, stableValue ?? lastValue, llmConfig)
+              return
+            }
+
+            const currentValue = focusInfo?.value ?? ''
+            if (currentValue !== lastValue) {
+              lastValue = currentValue
+              lastValueChangeAt = Date.now()
+              stableValue = currentValue
+            } else if (Date.now() - lastValueChangeAt > 1200) {
+              // 1.2 秒没变化，认为用户停止编辑
+              clearInterval(intervalId)
+              console.log('[main] auto-learn: input stable')
+              await finalizeAutoLearn(pastedValue, stableValue ?? lastValue, llmConfig)
+              return
+            }
+
+            if (maxAttempts <= 0) {
+              clearInterval(intervalId)
+              console.log('[main] auto-learn: max attempts reached')
+              await finalizeAutoLearn(pastedValue, stableValue ?? lastValue, llmConfig)
+            }
+          } catch (error) {
+            console.warn('[main] auto-learn: polling error:', error)
+            clearInterval(intervalId)
+          }
+        }, 300)
+      }
     } else if (settings.outputMode === 'copy') {
+      console.log('[main] copying text to clipboard (no auto-learn)')
       clipboard.writeText(outputText)
     }
 
@@ -511,6 +611,56 @@ async function handleTranscriptionResult(text: string): Promise<void> {
     console.error('[main] Transcription handling failed:', error)
   } finally {
     finishTranscribing()
+  }
+}
+
+/**
+ * 自动学习收尾：把用户修改后的当前值和原文做 diff，提取新增/替换的词加入词典。
+ */
+async function finalizeAutoLearn(
+  pastedValue: string,
+  currentValue: string,
+  llmConfig: { apiKey: string; baseUrl: string; model: string }
+): Promise<void> {
+  const trimmedCurrent = currentValue.trim()
+  console.log('[main] auto-learn: finalize pasted=', pastedValue, 'current=', trimmedCurrent)
+
+  if (!trimmedCurrent || !trimmedCurrent.includes(pastedValue)) {
+    console.log('[main] auto-learn: pasted text not found in current input, skip learning')
+    return
+  }
+
+  if (trimmedCurrent === pastedValue) {
+    console.log('[main] auto-learn: no changes detected')
+    return
+  }
+
+  // 用 LLM 提取用户纠正后的新词/核心词
+  let learnedWords: string[] = []
+  try {
+    learnedWords = await extractCorrectionsWithLlm(pastedValue, trimmedCurrent, llmConfig)
+    console.log('[main] auto-learn: LLM extracted words', learnedWords)
+  } catch (error) {
+    console.warn('[main] auto-learn: LLM extraction failed, fallback to no learning:', error)
+    return
+  }
+
+  if (learnedWords.length === 0) return
+
+  const dictionary = store.get('dictionary')
+  const existingWords = new Set(dictionary.map((entry) => entry.word))
+  const newEntries: DictionaryEntry[] = learnedWords
+    .filter((word) => !existingWords.has(word))
+    .map((word) => ({
+      id: crypto.randomUUID(),
+      word,
+      note: '自动从用户纠正中学习',
+      autoLearned: true
+    }))
+
+  if (newEntries.length > 0) {
+    store.set('dictionary', [...dictionary, ...newEntries])
+    console.log('[main] auto-learned words:', newEntries.map((e) => e.word).join(', '))
   }
 }
 
@@ -641,6 +791,14 @@ function setupIpc(): void {
   ipcMain.handle('get-dictionary', () => store.get('dictionary'))
   ipcMain.handle('set-dictionary', (_event, entries: DictionaryEntry[]) => {
     store.set('dictionary', entries)
+  })
+
+  ipcMain.handle('clear-dictionary', () => {
+    const before = store.get('dictionary')
+    console.log('[main] clear-dictionary: before count =', before.length)
+    store.set('dictionary', [])
+    const after = store.get('dictionary')
+    console.log('[main] clear-dictionary: after count =', after.length)
   })
 
   ipcMain.handle('transcribe-audio', async (_event, request: TranscribeAudioRequest) => {

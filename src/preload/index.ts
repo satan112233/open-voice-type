@@ -12,6 +12,7 @@ const api: ElectronAPI = {
 
   getDictionary: () => ipcRenderer.invoke('get-dictionary'),
   setDictionary: (entries) => ipcRenderer.invoke('set-dictionary', entries),
+  clearDictionary: () => ipcRenderer.invoke('clear-dictionary'),
 
   transcribeAudio: (request) => ipcRenderer.invoke('transcribe-audio', request),
 

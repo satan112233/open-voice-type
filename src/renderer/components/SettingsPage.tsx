@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Moon, Sun, Monitor, Keyboard, FileText, Database, Sparkles, Mic, Languages, ChevronDown, Check } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
-import { TRANSLATION_LANGUAGES, type Settings } from '@shared/types'
+import { TRANSLATION_LANGUAGES, KIMI_MODELS, DEEPSEEK_MODELS, type Settings } from '@shared/types'
 
 export function SettingsPage() {
   const { settings, updateSettings } = useSettingsStore()
@@ -342,6 +342,7 @@ export function SettingsPage() {
               options={[
                 { value: 'deepseek', label: 'DeepSeek' },
                 { value: 'zhipu', label: '智谱 AI' },
+                { value: 'kimi', label: 'Kimi（Moonshot AI）' },
                 { value: 'local', label: '本地模型（OpenAI 兼容）' }
               ]}
             />
@@ -409,28 +410,59 @@ export function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                {llmProvider === 'zhipu' ? '智谱 AI' : 'DeepSeek'} API Key
-              </label>
-              <input
-                type="password"
-                value={(llmProvider === 'zhipu' ? settings.zhipuApiKey : settings.deepseekApiKey) || ''}
-                onChange={(e) =>
-                  updateSettings(
-                    llmProvider === 'zhipu'
-                      ? { zhipuApiKey: e.target.value }
-                      : { deepseekApiKey: e.target.value }
-                  )
-                }
-                placeholder="填写所选大模型的 API Key"
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
-              />
+            <div className="space-y-4">
+              {(llmProvider === 'kimi' || llmProvider === 'deepseek') && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                    模型
+                  </label>
+                  {llmProvider === 'kimi' ? (
+                    <Dropdown
+                      value={settings.kimiModel || 'kimi-for-coding-highspeed'}
+                      onChange={(v) => updateSettings({ kimiModel: v })}
+                      options={KIMI_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+                    />
+                  ) : (
+                    <Dropdown
+                      value={settings.deepseekModel || 'deepseek-v4-flash'}
+                      onChange={(v) => updateSettings({ deepseekModel: v })}
+                      options={DEEPSEEK_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+                    />
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
+                  {llmProvider === 'zhipu' ? '智谱 AI' : llmProvider === 'kimi' ? 'Kimi（Moonshot AI）' : 'DeepSeek'} API Key
+                </label>
+                <input
+                  type="password"
+                  value={
+                    (llmProvider === 'zhipu'
+                      ? settings.zhipuApiKey
+                      : llmProvider === 'kimi'
+                        ? settings.kimiApiKey
+                        : settings.deepseekApiKey) || ''
+                  }
+                  onChange={(e) =>
+                    updateSettings(
+                      llmProvider === 'zhipu'
+                        ? { zhipuApiKey: e.target.value }
+                        : llmProvider === 'kimi'
+                          ? { kimiApiKey: e.target.value }
+                          : { deepseekApiKey: e.target.value }
+                    )
+                  }
+                  placeholder="填写所选大模型的 API Key"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary-color)] focus:outline-none"
+                />
+              </div>
             </div>
           )}
 
           <p className="text-xs text-[var(--text-tertiary)]">
-            DeepSeek、智谱 AI、本地模型均兼容 OpenAI 接口。口语优化与翻译共用此配置；未填 Key 时口语优化不生效、翻译会回退为输出原文。
+            DeepSeek、智谱 AI、Kimi、本地模型均兼容 OpenAI 接口。口语优化与翻译共用此配置；未填 Key 时口语优化不生效、翻译会回退为输出原文。
           </p>
           <p className="text-xs text-[var(--text-tertiary)]">
             本地模型示例：安装 Ollama 后运行 <code className="rounded bg-[var(--bg-tertiary)] px-1 py-0.5">ollama pull qwen2.5:14b</code>，即可选择「本地模型」并默认调用 <code className="rounded bg-[var(--bg-tertiary)] px-1 py-0.5">http://localhost:11434/v1</code>。

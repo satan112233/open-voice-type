@@ -15,6 +15,21 @@ export const TRANSLATION_LANGUAGES = [
 
 export type TranslationLangCode = (typeof TRANSLATION_LANGUAGES)[number]['code']
 
+// Kimi（api.kimi.com/coding）可用的模型 ID，均已实测可调用。highspeed 最快（<1s）为默认；
+// k3 系列带深度推理，延迟高（8–13s），口语优化场景不推荐。
+export const KIMI_MODELS = [
+  { id: 'kimi-for-coding-highspeed', label: 'kimi-for-coding-highspeed（最快，默认）' },
+  { id: 'kimi-for-coding', label: 'kimi-for-coding' },
+  { id: 'k3-256k', label: 'k3-256k（长上下文，较慢）' },
+  { id: 'k3', label: 'k3（深度推理，最慢）' }
+] as const
+
+// DeepSeek 可用的模型 ID，均已实测可调用。flash 最快（<1s）为默认；pro 更强但稍慢（~2s）。
+export const DEEPSEEK_MODELS = [
+  { id: 'deepseek-v4-flash', label: 'deepseek-v4-flash（最快，默认）' },
+  { id: 'deepseek-v4-pro', label: 'deepseek-v4-pro（更强，稍慢）' }
+] as const
+
 export interface Settings {
   version: number
   theme: Theme
@@ -27,6 +42,12 @@ export interface Settings {
   sherpaModelPath?: string
   zhipuApiKey?: string
   deepseekApiKey?: string
+  // DeepSeek 模型 ID（空则用预设默认 deepseek-v4-flash），可选值见 DEEPSEEK_MODELS。
+  deepseekModel?: string
+  // Kimi（Moonshot AI）API Key（sk-xxx）。
+  kimiApiKey?: string
+  // Kimi 模型 ID（空则用预设默认 kimi-for-coding-highspeed），可选值见 KIMI_MODELS。
+  kimiModel?: string
   // 本地模型配置（Ollama / llama.cpp / vLLM 等 OpenAI 兼容服务）。
   localBaseUrl?: string
   localModel?: string
@@ -36,7 +57,7 @@ export interface Settings {
   iflytekApiSecret?: string
   // 阿里云百炼（DashScope）API Key（sk-xxx），用于 Qwen3-ASR-Flash 语音识别。
   aliyunApiKey?: string
-  llmProvider?: 'deepseek' | 'zhipu' | 'local'
+  llmProvider?: 'deepseek' | 'zhipu' | 'kimi' | 'local'
   enableLlmOptimization: boolean
   // 边说边翻译：独立全局热键（默认 Ctrl+Alt+F）触发，输出目标语言译文。
   translationShortcut?: string
@@ -52,7 +73,7 @@ export interface HistoryItem {
   duration: number
   createdAt: number
   asrProvider?: AsrProvider
-  llmProvider?: 'deepseek' | 'zhipu' | 'local'
+  llmProvider?: 'deepseek' | 'zhipu' | 'kimi' | 'local'
   // 实际使用的大模型名（本地模型时记录具体模型，如 qwen2.5:14b）。
   llmModel?: string
   // 该条为「边说边翻译」生成时记录的目标语言；普通语音输入则为 undefined。
@@ -108,6 +129,7 @@ export interface ElectronAPI {
   // Dictionary
   getDictionary: () => Promise<DictionaryEntry[]>
   setDictionary: (entries: DictionaryEntry[]) => Promise<void>
+  clearDictionary: () => Promise<void>
 
   // Transcription
   transcribeAudio: (request: TranscribeAudioRequest) => Promise<TranscribeAudioResult>

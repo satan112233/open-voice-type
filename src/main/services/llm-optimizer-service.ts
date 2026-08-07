@@ -1,11 +1,13 @@
 import type { DictionaryEntry } from '../../shared/types'
 
-export type LlmProvider = 'deepseek' | 'zhipu' | 'local'
+export type LlmProvider = 'deepseek' | 'zhipu' | 'kimi' | 'local'
 
-// DeepSeek / 智谱 / 本地模型均为 OpenAI 兼容接口，差异仅在 baseUrl 与默认模型。
-export const LLM_PROVIDERS: Record<LlmProvider, { baseUrl: string; model: string }> = {
+// DeepSeek / 智谱 / Kimi / 本地模型均为 OpenAI 兼容接口，差异仅在 baseUrl 与默认模型。
+// temperature 可选：Kimi for Coding 的 kimi-for-coding-highspeed 只允许 temperature=1。
+export const LLM_PROVIDERS: Record<LlmProvider, { baseUrl: string; model: string; temperature?: number }> = {
   deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
   zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+  kimi: { baseUrl: 'https://api.kimi.com/coding/v1', model: 'kimi-for-coding-highspeed', temperature: 1 },
   local: { baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:14b' }
 }
 
@@ -60,7 +62,7 @@ function buildDictionaryReference(dictionary?: DictionaryEntry[]): string {
 async function callChatCompletion(
   systemPrompt: string,
   userContent: string,
-  config: { apiKey: string; baseUrl: string; model: string },
+  config: { apiKey: string; baseUrl: string; model: string; temperature?: number },
   errorLabel: string
 ): Promise<string> {
   const url = config.baseUrl.endsWith('/')
@@ -84,7 +86,7 @@ async function callChatCompletion(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
         ],
-        temperature: 0.3,
+        temperature: config.temperature ?? 0.3,
         max_tokens: 2048
       }),
       signal: controller.signal
@@ -114,7 +116,7 @@ async function callChatCompletion(
 
 export async function optimizeWithLlm(
   text: string,
-  config: { apiKey: string; baseUrl: string; model: string },
+  config: { apiKey: string; baseUrl: string; model: string; temperature?: number },
   dictionary?: DictionaryEntry[]
 ): Promise<string> {
   if (!config.apiKey?.trim()) {
@@ -147,7 +149,7 @@ function buildTranslatePrompt(targetLangName: string): string {
 
 export async function translateWithLlm(
   text: string,
-  config: { apiKey: string; baseUrl: string; model: string },
+  config: { apiKey: string; baseUrl: string; model: string; temperature?: number },
   targetLangName: string,
   dictionary?: DictionaryEntry[]
 ): Promise<string> {
@@ -163,4 +165,52 @@ export async function translateWithLlm(
   const userContent = `${dictionaryReference}原始口语文本：\n"""\n${text}\n"""\n\n请直接输出${targetLangName}译文：`
 
   return callChatCompletion(buildTranslatePrompt(targetLangName), userContent, config, '翻译')
+}
+
+const CORRECTION_SYSTEM_PROMPT = `你是一位语音输入助手的纠错学习专家。用户把语音识别的原文粘贴到输入框后，手动做了一些修改。请分析用户的修改，提取出值得加入个人词典的纠正/新增词汇。
+
+提取标准：
+1. 优先提取人名、品牌名、专有名词、专业术语、特殊写法
+2. 只返回用户真正修改或新增后想要保留的词
+3. 不要返回语气词、填充词、无意义的常见词
+4. 如果修改只是普通打字错误或无关调整，请返回空
+5. 每行只返回一个词，不要解释，不要序号
+6. 如果没有符合以上标准的词，请直接输出空字符串（真正空内容），不要输出"没有"、"无"、"（没有值得加入词典的词汇）"等任何解释性文字
+
+示例：
+- 原文："我今天跟张总谈合同"，修改后："我今天跟李总谈合同" → 输出：李总
+- 原文："我们去一地吃饭"，修改后："我们一起去吃饭" → 输出：（空字符串，不输出任何内容）
+- 原文："这个项目由王明负责"，修改后："这个项目由李明负责" → 输出：李明`
+
+export async function extractCorrectionsWithLlm(
+  original: string,
+  corrected: string,
+  config: { apiKey: string; baseUrl: string; model: string; temperature?: number }
+): Promise<string[]> {
+  if (!config.apiKey?.trim()) {
+    return []
+  }
+
+  if (!original.trim() || !corrected.trim() || original.trim() === corrected.trim()) {
+    return []
+  }
+
+  const userContent = `原文（语音识别结果）：\n"""\n${original}\n"""\n\n修改后的值（用户手动纠正后）：\n"""\n${corrected}\n"""\n\n请提取值得加入个人词典的纠正/新增词汇，每行一个，没有则返回空：`
+
+  const response = await callChatCompletion(CORRECTION_SYSTEM_PROMPT, userContent, config, '提取纠正词汇')
+  return response
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (line.length === 0) return false
+      // 过滤序号行
+      if (/^\d+[.、]/.test(line)) return false
+      // 过滤 LLM 可能返回的解释性/括号说明文本
+      if (/[（(].*?(没有|无|不存在|未找到|暂无|不适用|不需要|没有符合|空).*?[）)]/.test(line)) return false
+      // 过滤常见解释性整句
+      if (/^(没有|无|暂无|不存在|未找到|没有符合|没有值得|无需|不须|不需要|空|（空）|\(空\))/.test(line)) return false
+      // 过滤过长（超过 30 字大概率不是单个词）
+      if (line.length > 30) return false
+      return true
+    })
 }

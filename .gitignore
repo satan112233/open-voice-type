@@ -33,3 +33,7 @@ resources/sherpa-onnx/*
 
 # Build output (electron-vite legacy out dir)
 out
+
+# .NET build artifacts
+native/UiaHelper/bin/
+native/UiaHelper/obj/
